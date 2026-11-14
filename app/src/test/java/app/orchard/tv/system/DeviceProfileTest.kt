@@ -24,6 +24,11 @@ class DeviceProfileTest {
         assertEquals(setOf(8), mftr0.hiddenHardware)
         assertEquals(mapOf(1 to "ATV", 0 to "DTMB", 2 to "AV", 6 to "HDMI 2 (eARC)"), mftr0.labels)
 
+        val astr0 = DeviceProfile.match(json, "MiTV-ASTR0", 0)!!
+        assertEquals(setOf(7, 8), astr0.hiddenHardware)
+        assertTrue(astr0.neverFilterKeys)
+        assertTrue(astr0.skipTakeoverWhenDefaultHome)
+
         val mffu1 = DeviceProfile.match(json, "MiTV-MFFU1", 0)!!
         assertEquals(mapOf(9 to "DP", 10 to "USB-C"), mffu1.labels)
         assertEquals(mapOf(9 to 29, 10 to 30), mffu1.xiaomiSourceIds)
@@ -53,7 +58,10 @@ class DeviceProfileTest {
     }
 
     @Test fun jsonRoundTrips() {
-        val p = DeviceProfile(setOf(8, 3), mapOf(6 to "HDMI 1"), mapOf(6 to 23), mapOf(7 to 25), true, bootStockMs = 1500)
+        val p = DeviceProfile(
+            setOf(8, 3), mapOf(6 to "HDMI 1"), mapOf(6 to 23), mapOf(7 to 25), true,
+            bootStockMs = 1500, neverFilterKeys = true, skipTakeoverWhenDefaultHome = true,
+        )
         val back = DeviceProfile.parse(JSONObject(p.toJson().toString()))
         assertEquals(p.hiddenHardware, back.hiddenHardware)
         assertEquals(p.labels, back.labels)
@@ -61,10 +69,14 @@ class DeviceProfileTest {
         assertEquals(p.xiaomiFallbackSourceIds, back.xiaomiFallbackSourceIds)
         assertTrue(back.ignoresPictureBacklight)
         assertEquals(1500, back.bootStockMs)
+        assertTrue(back.neverFilterKeys)
+        assertTrue(back.skipTakeoverWhenDefaultHome)
         assertTrue(DeviceProfile().isEmpty)
         assertFalse(DeviceProfile(bootStockMs = 1000).isEmpty)
         assertFalse(DeviceProfile(neverFilterKeys = true).isEmpty)
         assertTrue(DeviceProfile(neverFilterKeys = true).toJson().optBoolean("neverFilterKeys"))
+        assertFalse(DeviceProfile(skipTakeoverWhenDefaultHome = true).isEmpty)
+        assertTrue(DeviceProfile(skipTakeoverWhenDefaultHome = true).toJson().optBoolean("skipTakeoverWhenDefaultHome"))
         assertFalse(DeviceProfile(filterHomeAlways = true).isEmpty)
         assertTrue(DeviceProfile.parse(JSONObject(DeviceProfile(filterHomeAlways = true).toJson().toString())).filterHomeAlways)
         assertFalse(back.filterHomeAlways)

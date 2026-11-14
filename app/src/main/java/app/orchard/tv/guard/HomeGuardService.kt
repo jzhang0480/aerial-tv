@@ -1110,12 +1110,17 @@ class HomeGuardService : AccessibilityService() {
     }.getOrDefault(false)
 
     /**
-     * Also when Aerial is the default Home: that only steers the HOME intent. Xiaomi MiTV-ANSP0
+     * Also when Aerial is the default Home: that usually only steers the HOME intent. Xiaomi MiTV-ANSP0
      * (Android 9) accepts set-home-activity, yet when standby force-stops Aerial, PatchWall's old
-     * task is simply uncovered and stays in front after wake (issue #6).
+     * task is simply uncovered and stays in front after wake (issue #6). A profile can opt out only
+     * on firmware where Aerial is the actual system Home; see Redmi A Pro 75 (MiTV-ASTR0).
      */
     private fun takeOverIfStockHomeInFront(reason: String, woke: Boolean, coveredSilently: Boolean = false) {
         if (!GuardSetup.isUserUnlocked(this)) return
+        if (DeviceProfile.current(this).skipTakeoverWhenDefaultHome && isDefaultHome()) {
+            DiagLog.i("guard: $reason; Aerial is default Home on this TV; leaving the foreground app")
+            return
+        }
         // No window seen since bound: ask usage stats what moved to the front last. Revived after
         // the firmware killed Aerial in the background, an unknown front was taken for the stock
         // launcher and Aerial was pulled over the video the viewer was watching (Toshiba

@@ -15,8 +15,10 @@
     },
     {
       "models": ["MiTV_ASTR0", "MiTV-ASTR0"],
-      "note": "Redmi A Pro 75 (blueplanet, Amlogic, Android 11): two HDMI ports on the set (the firmware's source_ports_list is source_list_tv_2hdmi), yet the TvInput HAL registers four, HW5-HW8 for HDMI 1-4 (#1517, the reporter's dumpsys tv_input; hidden 7 and 8 tried there, HDMI 1 and 2 still open).",
-      "hidden": [7, 8]
+      "note": "Redmi A Pro 75 (blueplanet, Amlogic, Android 11): two HDMI ports on the set (the firmware's source_ports_list is source_list_tv_2hdmi), yet the TvInput HAL registers four, HW5-HW8 for HDMI 1-4 (#1517; hide 7 and 8). The private com.ts.launcher build is the actual default Home: skip takeover over a foreground app, and disable accessibility key filtering after unlock because it drops KEYCODE_VOICE (192); toolkit verification 2026-10-26.",
+      "hidden": [7, 8],
+      "neverFilterKeys": true,
+      "skipTakeoverWhenDefaultHome": true
     },
     {
       "models": ["MiTV_MFFU1", "MiTV-MFFU1"],
