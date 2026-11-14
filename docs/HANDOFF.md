@@ -509,7 +509,7 @@
 ## 环境
 
 - macOS，JDK 17（`/opt/homebrew/opt/openjdk@17`），Android SDK 在 `~/Library/Android/sdk`，Gradle Wrapper 8.14.3，AGP 8.12，Kotlin 2.2.10。
-- **签名**：`local/signing.keystore` 加 `local/signing.properties`，`app/build.gradle.kts` 会优先使用它。电视上的版本都是用这把钥匙签的（SHA-256 `e08962dc…6685`）。没有它也能编译，但会回落到本机的 debug key，装不上电视（签名不一致）。
+- **签名（维护者的其他电视）**：`local/signing.properties` 指向本机 keystore，`app/build.gradle.kts` 会优先使用它；SHA-256 `e08962dc…6685` 仅对应维护者其他电视，不适用于 ASTR0。ASTR0 私有包 `com.ts.launcher` 的签名指纹和升级步骤见 `docs/devices/xiaomi-mitv-astr0.md`。缺少匹配的本机签名配置时，Release 会回落到 debug key，不能覆盖已有安装。
 - **ADB 连电视**需要关闭 Claude Code 的沙箱（局域网访问被拦）。电视第一次连接时要在电视上点「允许 USB 调试」。
 
 ## 日常操作
@@ -517,18 +517,18 @@
 ```bash
 source local/tvs.env                                    # XIAOMI_TV / TCL_TV（模板：tools/tvs.env.example）
 ./gradlew assembleStandardRelease assembleGuardRelease  # 两个版本一起编译
-BUILD=1 KEEP_ADB=1 TV=$XIAOMI_TV tools/install.sh       # 小米：全自动（BUILD=1 用本地编译；不加则下载 GitHub 最新 Release）
+BUILD=1 KEEP_ADB=1 TV=$XIAOMI_TV tools/install.sh       # 小米标准版；com.ts.launcher 必须本地构建，ASTR0 详见 docs/devices/xiaomi-mitv-astr0.md
 BUILD=1 KEEP_ADB=1 TV=$TCL_TV tools/install.sh guard    # TCL：通过多屏互动推送，在电视上选「同意」
-TV=<ip> tools/restore.sh [--uninstall]                  # 撤销所有授权和设置
+TV=<ip> tools/restore.sh                              # 撤销 Aerial 接管并把 HOME 交回系统桌面；--uninstall 会卸载并丢失 Aerial 数据
 ```
 
 多屏互动推送不要求 versionCode 变大，但回退到当贝时，当贝会隐藏不比已装版本新的 APK。所以发版时照样给 `versionCode` 加 1，两台电视的版本号保持一致。
 
-只改了代码、想快速更新小米时：
+只改了代码、想手工快速更新维护者的小米时（不适用于 ASTR0；ASTR0 请按 `docs/devices/xiaomi-mitv-astr0.md`）：
 
 ```bash
 APK=app/build/outputs/apk/standard/release/app-standard-release.apk
-unzip -p $APK assets/aerial-dm/31.dm > ${APK%.apk}.dm   # Android 9–11 用 28.dm
+unzip -p $APK assets/aerial-dm/31.dm > ${APK%.apk}.dm   # 本示例为 API 31+；ASTR0 API 30 用 28.dm
 adb -s $XIAOMI_TV:5555 install-multiple -r $APK ${APK%.apk}.dm
 adb -s $XIAOMI_TV:5555 shell "dumpsys package dexopt | grep -A2 'com.ts.launcher]'"   # 应是 speed-profile / install-dm
 ```

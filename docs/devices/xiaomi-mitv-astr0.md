@@ -1,29 +1,133 @@
-# Redmi A Pro 75 (MiTV-ASTR0)
+# Redmi A Pro 75（MiTV-ASTR0）本机升级指南
 
-## Device and package identity
+> 本文是 ASTR0 本机升级、备份、核验与恢复的唯一操作指南。所有步骤均使用 AerialTV 仓库内的脚本和代码；不需要外部 toolkit 或其他仓库外文档。电视地址、签名密钥和户主设置只保存在被 Git 忽略的 `local/` 中，不要写入跟踪文件。
 
-- Redmi Smart TV A Pro 75" 2025 energy-saving edition; model `MiTV-ASTR0` / `MiTV_ASTR0`, codename `blueplanet`.
-- Android 11; toolkit record: firmware `OS2.0.21.0.RSTAATV`.
-- Full app ID: `com.ts.launcher`; source namespace and component classes stay `app.orchard.tv`.
-- Home component: `com.ts.launcher/app.orchard.tv.MainActivity`; flavor: `standard`.
-- Public Aerial releases still use `app.orchard.tv` and cannot update this renamed app. Build/install a matching private APK and keep the same signing key.
-- Signing certificate SHA-256: `47:94:7F:3D:B3:EF:0C:DC:1C:04:55:88:E1:64:B6:80:4B:7C:71:B7:8C:A2:94:0F:33:55:9A:BE:29:DB:C5:D0`. Within AerialTV, keep private key material only under the ignored `local/` directory; never commit it. The toolkit's separate private copy is outside this repository.
+## 设备身份与当前基线
 
-## Device-specific profile
+- 机型：Redmi Smart TV A Pro 75" 2025 节能版；型号 `MiTV-ASTR0` / `MiTV_ASTR0`，代号 `blueplanet`。
+- 系统：Android 11，API 30。
+- Aerial 完整版包名：`com.ts.launcher`；源码 namespace 和 Activity 类仍为 `app.orchard.tv`。
+- HOME 组件：`com.ts.launcher/app.orchard.tv.MainActivity`；升级使用 `standard` flavor。
+- 本机私有安装所需证书 SHA-256：`47:94:7F:3D:B3:EF:0C:DC:1C:04:55:88:E1:64:B6:80:4B:7C:71:B7:8C:A2:94:0F:33:55:9A:BE:29:DB:C5:D0`。这是证书指纹，不是密钥；私钥不得进入版本库。
+- 公开 Aerial Release 使用 `app.orchard.tv`，**不能**覆盖升级本机的 `com.ts.launcher`。
+- 截至 2026-11-14，本机已安装 Aerial 1.97 / versionCode 142。已核验包名、签名、HOME 解析到上述组件，以及 `dumpsys package dexopt` 为 `speed-profile`（`install-dm`）。遥控器、语音键、屏保、待机等交互尚未由本次升级验证，仍需机主实际测试。
+- 2026-11-14 升级前保存的 1.74 / code 94 APK 不是当前 1.97 的备份。每次升级都要重新备份当时设备上的版本。
 
-`app/src/main/assets/devices.json` has an ASTR0 profile for three independently observed firmware behaviors:
+## ASTR0 设备配置
 
-- Hide HDMI hardware IDs 7 and 8: the set has two HDMI ports, although the TV input HAL registers four (#1517).
-- Set `neverFilterKeys`: requesting Accessibility key filtering on this firmware suppresses the remote's voice key (`KEYCODE_VOICE`, 192). Once the user is unlocked and the profile is available, the guard disables key filtering on this model.
-- Set `skipTakeoverWhenDefaultHome`: when `com.ts.launcher` actually resolves as the system default Home, the guard must not mistake an unknown foreground after unlock for PatchWall and relaunch Aerial over the app in use. This exception is limited to the ASTR0 profile; other Xiaomi models retain the normal takeover behavior.
+仓库的 `app/src/main/assets/devices.json` 为此机型保留了三项修正：
 
-These are per-device corrections because the firmware behavior cannot be safely inferred from a general Android capability. The voice-key and unlock/takeover observations come from the private toolkit's real-device notes. The public ASTR0 report #1517 supplies the HDMI evidence.
+- 隐藏 HDMI 硬件 ID 7、8；本机只有两个实际 HDMI 端口。
+- `neverFilterKeys`：此固件上的无障碍按键过滤会吞掉遥控器语音键 `KEYCODE_VOICE`（192）。
+- `skipTakeoverWhenDefaultHome`：Aerial 已是默认 HOME 时，不要把未知前台应用误判为 PatchWall 并重新拉起 Aerial 覆盖它。
 
-## Build and verification
+不要为了升级修改这些规则，也不要停用或卸载 `com.mitv.tvhome` 或其他系统应用；始终保留系统桌面作为可恢复的 HOME。
 
-- Build from this checkout with JDK 17 and the Android SDK: `./gradlew assembleStandardRelease`.
-- An update-compatible build needs `local/signing.properties` and its referenced keystore under the ignored `local/` directory. If those files are absent, release builds fall back to this machine's debug key, which is not portable. Never commit signing material.
-- `tools/install.sh` requires `BUILD=1` or `APK_FILE` for this private ID; the public Release APK has the incompatible `app.orchard.tv` ID.
-- The toolkit records real-device checks on 2026-10-26 for the menu key, voice key, and Aerial screensaver, and package/Home upgrade checks through Aerial 1.89 (versionCode 126). The current repository's Aerial 1.97 / versionCode 142 private build has **not** been installed or revalidated on this TV. Do not treat the current profile/code as newly device-verified until those checks are repeated.
+## 升级前准备
 
-Do not disable or uninstall `com.mitv.tvhome` or other system apps as part of this setup. Keep a working fallback Home and use only the authorized ADB endpoint from the local, ignored machine configuration; do not record TV IPs or owner-specific settings in tracked files.
+1. 在 AerialTV 仓库根目录执行命令。需要 JDK 17、Android SDK、`adb`、`unzip`，以及本机忽略目录中的 `local/signing.properties` 和它引用的 keystore。
+2. Release 构建在缺少本机签名配置时会回退到本机 debug key。**若签名配置/keystore 缺失，或证书指纹不是上面的 ASTR0 指纹，停止升级；不要尝试用 debug key 覆盖安装，也不要按安装脚本提示先卸载。**
+3. 从电视当前显示的 ADB/无线调试页面取得本机使用的 endpoint，并只在本机 shell 变量中设置。不要把真实 IP、配对码或端口提交到仓库。Android 11 的无线调试 endpoint/端口可能变化，首次连接也可能需要电视显示的配对码；不要假定 `:5555` 永远可用。
+
+以下示例中的 `TV_IP_OR_IP:PORT` 是占位符，执行前必须替换为电视当前显示的 endpoint：
+
+```bash
+export JAVA_HOME=/opt/homebrew/opt/openjdk@17
+export ANDROID_HOME="${ANDROID_HOME:-$HOME/Library/Android/sdk}"
+TV="TV_IP_OR_IP:PORT"
+case "$TV" in *:*) ADB_TARGET="$TV" ;; *) ADB_TARGET="$TV:5555" ;; esac
+adb connect "$ADB_TARGET"
+adb -s "$ADB_TARGET" get-state
+adb -s "$ADB_TARGET" shell getprop ro.product.model
+adb -s "$ADB_TARGET" shell getprop ro.build.version.sdk
+```
+
+继续前必须确认设备型号为 `MiTV-ASTR0` / `MiTV_ASTR0`、SDK 为 `30`，且 `get-state` 返回 `device`。如需 Android 11 无线调试配对，按电视当前显示的配对页操作；不要复用过期端口或配对码。
+
+## 每次升级流程
+
+### 1. 核对当前安装并备份 APK
+
+先记录设备当前版本、包名路径：
+
+```bash
+adb -s "$ADB_TARGET" shell dumpsys package com.ts.launcher | grep -E 'versionCode=|versionName='
+adb -s "$ADB_TARGET" shell pm path com.ts.launcher
+```
+
+确认输出属于预期的 `com.ts.launcher`，并将下面 `OLD_VERSION`、`OLD_CODE` 换成刚才读到的值。以下命令假定 `pm path` 返回一个 `package:` 路径；如果出现多个路径，先停下核实，不要只备份 split APK 的一部分。请在同一个终端会话中按顺序执行本指南的命令：
+
+```bash
+OLD_VERSION="1.97" # 用设备当前 versionName 替换
+OLD_CODE="142"      # 用设备当前 versionCode 替换
+REMOTE_PATHS=$(adb -s "$ADB_TARGET" shell pm path com.ts.launcher | tr -d '\r')
+REMOTE_COUNT=$(printf '%s\n' "$REMOTE_PATHS" | grep -c '^package:' || true)
+BACKUP="local/backups/aerial-com.ts.launcher-${OLD_VERSION}-code${OLD_CODE}-before-upgrade-$(date +%Y%m%d-%H%M%S).apk"
+if [ "$REMOTE_COUNT" -eq 1 ]; then
+  REMOTE_APK=$(printf '%s\n' "$REMOTE_PATHS" | sed -n 's/^package://p')
+  mkdir -p local/backups
+  if [ -e "$BACKUP" ]; then
+    printf 'Backup path already exists; stop and choose a new timestamp.\n' >&2
+  elif adb -s "$ADB_TARGET" pull "$REMOTE_APK" "$BACKUP"; then
+    printf 'Saved: %s\n' "$BACKUP"
+  else
+    printf 'Backup failed; stop without installing.\n' >&2
+  fi
+else
+  printf 'Expected exactly one installed APK path, got %s; stop without installing.\n' "$REMOTE_COUNT" >&2
+fi
+```
+
+确认备份文件存在且大小合理。后续构建检查时会一并核对备份 APK 的包名、版本和证书。
+
+此步骤只备份 APK，不备份应用数据，也不保证有对应 `.dm` 文件。保留备份，不要清理其他户主文件。
+
+### 2. 构建并核对待安装包
+
+本机 `local/signing.properties` 及其引用的 keystore 必须存在。构建 `standard` Release，并在安装前核对 APK 的包名、版本与签名：
+
+```bash
+./gradlew assembleStandardRelease
+APK=app/build/outputs/apk/standard/release/app-standard-release.apk
+AAPT2=$(ls "$ANDROID_HOME"/build-tools/*/aapt2 | sort -V | tail -n 1)
+APKSIGNER=$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -n 1)
+"$AAPT2" dump badging "$BACKUP" | grep '^package:'
+"$APKSIGNER" verify --print-certs "$BACKUP"
+"$AAPT2" dump badging "$APK" | grep '^package:'
+"$APKSIGNER" verify --print-certs "$APK"
+```
+
+备份和待安装包的 `package:` 都应为 `com.ts.launcher`，备份版本应与设备上的旧版本一致；新 APK 的版本应符合本次预期且 versionCode 高于已安装版本。两份 APK 的 `SHA-256` 证书指纹都必须与本指南开头的 ASTR0 指纹一致。格式大小写或冒号不同可以规范化后比较；任何一项不符都停止，不要安装。
+
+### 3. 通过仓库安装脚本覆盖升级
+
+把刚核对过的 APK 交给仓库自带的安装脚本；不要下载公开 Release，也不要用手工 `adb install -r` 替代：
+
+```bash
+APK_FILE="$APK" KEEP_ADB=1 TV="$TV" tools/install.sh
+```
+
+脚本会按 `standard` flavor 安装本地 APK、恢复 Aerial 所需授权并启动应用。ASTR0 为 API 30，脚本会从 APK 选择匹配的 `assets/aerial-dm/28.dm` 并尝试 APK + `.dm` 组合安装；不需要手工指定其他 API 的 `.dm`。若脚本报告签名不匹配，**不要按提示卸载**，先停止并检查签名配置。
+
+也可以让脚本自行构建并安装：`BUILD=1 KEEP_ADB=1 TV="$TV" tools/install.sh`。此方式没有安装前检查独立构建产物的停顿；推荐优先使用上面的“先构建、检查，再通过 `APK_FILE` 安装”流程。
+
+### 4. 安装后核验
+
+```bash
+adb -s "$ADB_TARGET" shell dumpsys package com.ts.launcher | grep -E 'versionCode=|versionName='
+adb -s "$ADB_TARGET" shell cmd package resolve-activity --brief \
+  -a android.intent.action.MAIN -c android.intent.category.HOME -c android.intent.category.DEFAULT
+adb -s "$ADB_TARGET" shell dumpsys package dexopt | grep -A2 'com.ts.launcher]'
+```
+
+确认安装版本正确，HOME 解析为 `com.ts.launcher/app.orchard.tv.MainActivity`，dexopt 达到 `speed-profile`（正常情况下原因为 `install-dm`）。在电视上再实际检查遥控器菜单键、语音键、应用切换/返回、Aerial 屏保与待机唤醒。未由机主完成这些交互检查前，不要把它们记录为已验证。
+
+## KEEP_ADB 与恢复
+
+- `KEEP_ADB=1` 通过 Aerial 配置开启保持 ADB 的偏好；Home Guard 运行时会在固件关闭 `adb_enabled` 后尝试恢复它。它不是独立 ADB 服务，也**不保证** Android 11 的无线调试端口、配对或网络 endpoint 永久有效。若电视关闭无线调试或端口变化，需要在电视上查看并重新启用/配对。
+- `TV="$TV" tools/restore.sh` 用于停止 Aerial 接管 HOME、把 HOME 交回系统桌面，并让 Aerial 保持安装。执行后按脚本提示重启电视。它不是 APK 降级工具。
+- APK 降级可能被 Android 以 `INSTALL_FAILED_VERSION_DOWNGRADE` 拒绝；签名不匹配也不能覆盖安装。不要把卸载后重装当作常规回滚：`tools/restore.sh --uninstall` 会卸载 `com.ts.launcher`，可能丢失 Aerial 设置、壁纸及应用数据。只有机主明确接受数据后果并另行决定回滚方案时才考虑卸载。
+
+## 维护此指南
+
+每次完成新的升级后，更新“当前基线与验证边界”中的版本、实测项目和 dexopt 结果。电视 IP、配对码、keystore、密码、家庭设置及备份文件始终只留在被忽略的 `local/`；本指南和其他跟踪文件不得包含这些内容。

@@ -15,11 +15,12 @@ tvOS 风格的 Android TV 桌面，面向国内电视（小米、TCL 等），Ko
 export JAVA_HOME=/opt/homebrew/opt/openjdk@17
 ./gradlew assembleStandardRelease assembleGuardRelease
 ./gradlew :lite:assembleRelease   # Android 4.x 用的 Aerial Lite
-source local/tvs.env && BUILD=1 KEEP_ADB=1 TV=$XIAOMI_TV tools/install.sh   # BUILD=1：用本地编译的 APK；不加就下载最新 Release
+source local/tvs.env && BUILD=1 KEEP_ADB=1 TV=$XIAOMI_TV tools/install.sh   # com.ts.launcher 必须本地构建；ASTR0 完整流程见 docs/devices/xiaomi-mitv-astr0.md
 ```
 
 - 连电视的命令（adb、curl 访问电视）需要关闭沙箱。
-- 在电视上测试一律用 release 版，并连同 APK 里的 .dm 一起装（`adb install-multiple -r x.apk x.dm`，命令见 `docs/HANDOFF.md`「日常操作」），装完看 `dumpsys package dexopt` 是 `speed-profile`。debug 版在电视上会卡；小米 MFTR0 上 `install -r` 后再 `compile -m speed` 得到的是没编译的 `verify`。
+- ASTR0 本机升级、备份、核验和恢复只按 `docs/devices/xiaomi-mitv-astr0.md` 操作；不要使用公开 Release APK，也不要套用其他设备的 `.dm` 示例。
+- 在电视上测试一律用 release 版，并连同 APK 里的 .dm 一起装（`adb install-multiple -r x.apk x.dm`；一般命令见 `docs/HANDOFF.md`「日常操作」；ASTR0 必须遵循 `docs/devices/xiaomi-mitv-astr0.md`，由仓库脚本选择匹配的 `.dm`），装完看 `dumpsys package dexopt` 是 `speed-profile`。debug 版在电视上会卡；小米 MFTR0 上 `install -r` 后再 `compile -m speed` 得到的是没编译的 `verify`。
 - 发 TCL 版本前先给 `versionCode` 加 1。
 
 ## 代码约定
