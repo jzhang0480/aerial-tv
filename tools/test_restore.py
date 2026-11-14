@@ -6,7 +6,7 @@ import tempfile
 import unittest
 
 SCRIPT = Path(os.environ.get('RESTORE_SCRIPT', Path(__file__).with_name('restore.sh'))).resolve()
-LISTENER = 'app.orchard.tv/app.orchard.tv.guard.RevivalListener'
+LISTENER = 'com.ts.launcher/app.orchard.tv.guard.RevivalListener'
 OTHER = 'org.example.first/org.example.first.Listener'
 ANOTHER = 'org.example.second/org.example.second.Listener'
 
@@ -24,7 +24,7 @@ case "$*" in
   'shell cmd notification disallow_listener '*) exit "$CMD_STATUS" ;;
   'shell settings get secure enabled_notification_listeners') printf '%s\\n' "$LISTENERS" ;;
   'shell settings get secure screensaver_components') echo org.example/.Screensaver ;;
-  'shell settings get secure enabled_accessibility_services') echo app.orchard.tv/app.orchard.tv.guard.HomeGuardService ;;
+  'shell settings get secure enabled_accessibility_services') echo com.ts.launcher/app.orchard.tv.guard.HomeGuardService ;;
   'shell settings get global aerial_vt_home_pkg') echo null ;;
   'shell settings get global aerial_boot_app_componentname') echo null ;;
   'shell settings get system boot_app_componentname') echo null ;;
@@ -49,8 +49,8 @@ esac
 
     def assert_restored(self, result, calls):
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn('shell pm revoke app.orchard.tv android.permission.WRITE_SECURE_SETTINGS', calls)
-        self.assertIn('shell am force-stop app.orchard.tv', calls)
+        self.assertIn('shell pm revoke com.ts.launcher android.permission.WRITE_SECURE_SETTINGS', calls)
+        self.assertIn('shell am force-stop com.ts.launcher', calls)
         self.assertIn('shell input keyevent KEYCODE_HOME', calls)
         self.assertIn('Home now: org.example/.Home', result.stdout)
         self.assertNotIn('unexpected adb:', result.stderr)

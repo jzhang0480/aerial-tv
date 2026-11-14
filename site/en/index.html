@@ -399,7 +399,7 @@ The install guide is here: ${guide}
 Read the whole guide before you start. Then run the commands yourself on my computer; don't just tell me the steps. Tell me when I need to do something on the TV.
 At the end, paste the raw output of these commands from the "Check" section, not just "it worked":
 - adb shell "cmd package resolve-activity --brief -a android.intent.action.MAIN -c android.intent.category.HOME" (which home screen it finds)
-- adb shell settings get secure enabled_accessibility_services (does it contain app.orchard.tv/app.orchard.tv.guard.HomeGuardService?)
+- adb shell settings get secure enabled_accessibility_services (does it contain com.ts.launcher/app.orchard.tv.guard.HomeGuardService?)
 - adb shell "dumpsys window | grep mCurrentFocus" after pressing Home
 If it did not work, tell me exactly which step failed.`,
     adapt: (ip, guide) =>

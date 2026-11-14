@@ -1426,7 +1426,7 @@ class MainActivity : ComponentActivity() {
         /** The pre-mute came 2.4–2.8 s after the reopen on MiTV4-ANSM0 (issue #1337). */
         private const val REOPEN_VOLUME_NUDGE_MS = 4_000L
 
-        /** `adb shell am start -a app.orchard.tv.PREVIEW_SCREENSAVER -n app.orchard.tv/.MainActivity` */
+        /** `adb shell am start -a app.orchard.tv.PREVIEW_SCREENSAVER -n com.ts.launcher/app.orchard.tv.MainActivity` */
         const val ACTION_PREVIEW_SCREENSAVER = "app.orchard.tv.PREVIEW_SCREENSAVER"
 
         /** Set by Home Guard when it brings Aerial back after standby or a boot. */

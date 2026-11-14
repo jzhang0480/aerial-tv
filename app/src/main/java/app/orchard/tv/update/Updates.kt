@@ -207,11 +207,11 @@ object Updates {
         NotNewer,
     }
 
-    /** The official package. Copies renamed for one firmware (OPPO, see docs/devices) cannot update from the release. */
+    /** Public release APKs use this id; renamed builds need a matching private APK. */
     private const val PACKAGE = "app.orchard.tv"
 
-    /** Whether this copy can update itself from the release at all. */
-    fun canInstall(context: Context): Boolean = context.packageName == PACKAGE
+    /** Whether a public release (or an explicitly supplied test APK) can replace this copy. */
+    fun canInstall(context: Context): Boolean = context.packageName == PACKAGE || testApk?.isFile == true
 
     /**
      * Downloads this flavor's APK of the latest release and installs it. Android 9 and later, a
@@ -583,7 +583,7 @@ object Updates {
 
     /**
      * For testing the whole update on a TV before a release (ConfigReceiver's update_test): the APK
-     * pushed to Android/data/app.orchard.tv/files/update-test.apk stands in for the download.
+     * pushed to Android/data/com.ts.launcher/files/update-test.apk stands in for the download.
      */
     @Volatile var testApk: File? = null
 

@@ -27,7 +27,7 @@ import org.json.JSONObject
 /**
  * What a maintainer without the reporter's TV needs to adapt Aerial to it, as Markdown to paste
  * into a GitHub issue (.github/ISSUE_TEMPLATE/device.yml). Shown on the phone page and printed by
- *   adb shell dumpsys activity app.orchard.tv/.MainActivity report
+ *   adb shell dumpsys activity com.ts.launcher/app.orchard.tv.MainActivity report
  * which tools/report.sh adds to what only a shell can read.
  *
  * Nothing personal: no account, serial number, Wi-Fi name, address, phone page token, weather city

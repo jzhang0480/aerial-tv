@@ -73,7 +73,7 @@ class MainTest(unittest.TestCase):
         sock = Mock()
         sock.recv.side_effect = [response, b'']
         err, out = io.StringIO(), io.StringIO()
-        args = ['tcast-push.py', 'unused.invalid', 'https://example.invalid/a.apk', 'app.orchard.tv', 'Aerial', '97']
+        args = ['tcast-push.py', 'unused.invalid', 'https://example.invalid/a.apk', 'com.ts.launcher', 'Aerial', '97']
         with patch.object(tcast.socket, 'create_connection', return_value=sock), patch.object(sys, 'argv', args), contextlib.redirect_stderr(err), contextlib.redirect_stdout(out):
             result = tcast.main()
         return result, sock, out.getvalue(), err.getvalue()
@@ -89,24 +89,24 @@ class MainTest(unittest.TestCase):
         self.assertNotIn('Installed.', out)
 
     def test_success_still_succeeds(self):
-        result, _, out, err = self.run_main(frame('223>>PROGRESS>>app.orchard.tv>>Aerial>>5>>100'))
+        result, _, out, err = self.run_main(frame('223>>PROGRESS>>com.ts.launcher>>Aerial>>5>>100'))
         self.assertEqual(result, 0)
         self.assertIn('Installed.', out)
         self.assertEqual(err, '')
 
     def test_denied_still_fails(self):
-        result, _, out, err = self.run_main(frame('223>>INSTALL>>app.orchard.tv>>Aerial>>denied'))
+        result, _, out, err = self.run_main(frame('223>>INSTALL>>com.ts.launcher>>Aerial>>denied'))
         self.assertEqual(result, 1)
         self.assertIn('Refused on the TV.', err)
 
     def test_failed_install_still_fails(self):
-        result, _, out, err = self.run_main(frame('223>>PROGRESS>>app.orchard.tv>>Aerial>>2>>0'))
+        result, _, out, err = self.run_main(frame('223>>PROGRESS>>com.ts.launcher>>Aerial>>2>>0'))
         self.assertEqual(result, 1)
         self.assertIn('could not download or install', err)
 
     def test_refused_install_fails(self):
         # TCL MT5879 after 同意 on aerial-standard.apk: download to 100, then stage 4 (issue #1163).
-        result, _, out, err = self.run_main(frame('223>>PROGRESS>>app.orchard.tv>>Aerial>>3>>0') + frame('223>>PROGRESS>>app.orchard.tv>>Aerial>>4>>2'))
+        result, _, out, err = self.run_main(frame('223>>PROGRESS>>com.ts.launcher>>Aerial>>3>>0') + frame('223>>PROGRESS>>com.ts.launcher>>Aerial>>4>>2'))
         self.assertEqual(result, 1)
         self.assertIn('refused to install', err)
         self.assertNotIn('Timed out', err)

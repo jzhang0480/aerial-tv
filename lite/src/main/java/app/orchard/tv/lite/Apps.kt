@@ -136,7 +136,7 @@ object AppCatalog {
         }
         found.remove(context.packageName)
         // The full app is a Home too; it is never one of Lite's tiles.
-        found.remove("app.orchard.tv")
+        found.remove("com.ts.launcher")
 
         val byCategory = HashMap<String, SystemTile>()
         for ((category, tile) in SYSTEM_CATEGORIES) {

@@ -43,7 +43,7 @@ curl -fsSL https://aerial.qust.me/tools/selftest.sh | TV=<IP> bash
 Every switch goes through Aerial's ADB receiver (only the ADB shell can send it):
 
 ```
-adb shell am broadcast -a app.orchard.tv.CONFIG -n app.orchard.tv/.guard.ConfigReceiver <arguments>
+adb shell am broadcast -a app.orchard.tv.CONFIG -n com.ts.launcher/app.orchard.tv.guard.ConfigReceiver <arguments>
 ```
 
 written `CONFIG <arguments>` below.
@@ -66,16 +66,16 @@ These are fixed on the spot, with no new release. Aerial keeps each TV's correct
 2. Open each: `CONFIG --es open_source '<id>'`, ask the user which port on the TV it switched to (or none), then `adb shell input keyevent KEYCODE_HOME`.
 3. Write the corrections. The JSON has quotes and spaces, so put the whole command in double quotes, the JSON in single quotes and its double quotes as `\"` (a macOS / Linux terminal; Git Bash on Windows), or the TV's shell eats the quotes:
    ```
-   adb shell "am broadcast -a app.orchard.tv.CONFIG -n app.orchard.tv/.guard.ConfigReceiver --es device_profile '{\"hidden\":[8],\"labels\":{\"6\":\"HDMI 1\"},\"xiaomiSources\":{\"6\":23,\"5\":24}}'"
+   adb shell "am broadcast -a app.orchard.tv.CONFIG -n com.ts.launcher/app.orchard.tv.guard.ConfigReceiver --es device_profile '{\"hidden\":[8],\"labels\":{\"6\":\"HDMI 1\"},\"xiaomiSources\":{\"6\":23,\"5\":24}}'"
    ```
    The `device_profile=...` in the output is what was stored and should match. It **replaces** this TV's corrections whole, so start from the current one (the diagnostics' "Device profile"). Invalid JSON is not stored, and the output says `not valid JSON`.
 4. Repeat step 2 until every port is right. On Xiaomi, change one port at a time, from 23 up.
-5. The **Device profile** section at the end of `adb shell dumpsys activity app.orchard.tv/.MainActivity report` (origin `ThisTv`) is what goes to the maintainer.
+5. The **Device profile** section at the end of `adb shell dumpsys activity com.ts.launcher/app.orchard.tv.MainActivity report` (origin `ThisTv`) is what goes to the maintainer.
 6. To undo: `CONFIG --es device_profile default`.
 
 ### Home does not come back (`home_on_aerial` / `home_from_app` fail)
 
-1. `guard` failed too: Home Guard is not running. Run `curl -fsSL https://aerial.qust.me/install.sh | TV=<IP> bash -s repair`, or `adb shell am force-stop app.orchard.tv`, wait 3 s, `adb shell am start -W -n app.orchard.tv/.MainActivity`, and test again.
+1. `guard` failed too: Home Guard is not running. Run `curl -fsSL https://aerial.qust.me/install.sh | TV=<IP> bash -s repair`, or `adb shell am force-stop com.ts.launcher`, wait 3 s, `adb shell am start -W -n com.ts.launcher/app.orchard.tv.MainActivity`, and test again.
 2. `home_from_app` passed but took about 5 s: normal. Android handles the `input keyevent` Home itself and holds back app starts for 5 s after it; the remote's Home key is caught by Home Guard and does not wait.
 3. `guard` passed, `home_from_app` failed: ask the user to press Home on the real remote, then after 8 s run `adb shell "dumpsys window | grep mCurrentFocus"`. `input keyevent` skips Home Guard's key filter; the remote is what counts.
 4. Still not back: keep report.sh's "Home" and "Bound services" sections and `adb logcat -d -t 300 | grep -E "AerialGuard|ActivityTaskManager|ActivityManager"` after the key press for the maintainer.

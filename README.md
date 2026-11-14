@@ -102,7 +102,7 @@ adb connect 192.168.1.20:39201   # 无线调试主页面上的另一组 IP:端�
 - 按主页键后的 adb shell "dumpsys window | grep mCurrentFocus"
 ```
 
-手机上的豆包、网页版聊天只会把步骤告诉你，不会执行；要用能跑命令的电脑版 / 工作版（豆包电脑版或豆包工作版、WorkBuddy、千问电脑版、Trae、Claude Code、Codex 等）。Agent 说装好了，看它贴出的 `mCurrentFocus` 输出里有没有 `app.orchard.tv`。
+手机上的豆包、网页版聊天只会把步骤告诉你，不会执行；要用能跑命令的电脑版 / 工作版（豆包电脑版或豆包工作版、WorkBuddy、千问电脑版、Trae、Claude Code、Codex 等）。Agent 说装好了，看它贴出的 `mCurrentFocus` 输出里有没有 `com.ts.launcher`。
 
 **没有电脑**：有用户用手机上的甲壳虫 ADB 助手、超级小爱装成功过，本仓库没有逐一实测。步骤和上面的 Windows 步骤一样，装好后建议再用电脑跑一遍验收。
 
@@ -122,11 +122,11 @@ curl -fsSL https://aerial.qust.me/install.sh | KEEP_ADB=1 TV=192.168.1.20 bash
 ```bash
 adb connect 192.168.1.20:5555
 adb install -r aerial-standard.apk
-adb shell pm grant app.orchard.tv android.permission.WRITE_SECURE_SETTINGS
-adb shell cmd notification allow_listener app.orchard.tv/app.orchard.tv.guard.RevivalListener
-adb shell appops set app.orchard.tv SYSTEM_ALERT_WINDOW allow
-adb shell am start -n app.orchard.tv/.MainActivity
-adb shell cmd package compile -m speed -f app.orchard.tv
+adb shell pm grant com.ts.launcher android.permission.WRITE_SECURE_SETTINGS
+adb shell cmd notification allow_listener com.ts.launcher/app.orchard.tv.guard.RevivalListener
+adb shell appops set com.ts.launcher SYSTEM_ALERT_WINDOW allow
+adb shell am start -n com.ts.launcher/app.orchard.tv.MainActivity
+adb shell cmd package compile -m speed -f com.ts.launcher
 ```
 
 最后一条让 Aerial 在电视上更流畅：等 Aerial 显示出来、过 5 秒再运行，要几十秒。不运行的话，Aerial 要等到下次从控制中心升级时才会编译。

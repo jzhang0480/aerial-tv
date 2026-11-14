@@ -530,7 +530,7 @@ TV=<ip> tools/restore.sh [--uninstall]                  # 撤销所有授权和�
 APK=app/build/outputs/apk/standard/release/app-standard-release.apk
 unzip -p $APK assets/aerial-dm/31.dm > ${APK%.apk}.dm   # Android 9–11 用 28.dm
 adb -s $XIAOMI_TV:5555 install-multiple -r $APK ${APK%.apk}.dm
-adb -s $XIAOMI_TV:5555 shell "dumpsys package dexopt | grep -A2 'app.orchard.tv\]'"   # 应是 speed-profile / install-dm
+adb -s $XIAOMI_TV:5555 shell "dumpsys package dexopt | grep -A2 'com.ts.launcher]'"   # 应是 speed-profile / install-dm
 ```
 
 **不要再用 `install -r` 加 `compile -m speed`**：小米 MFTR0 把命令行的 `speed`（连 `everything`、`verify`）都改成 `speed-profile`，装完马上编译时还没有 profile，结果是 `verify`，也就是没编译（2026-11-03 下午的测试包就是这样，户主用它试航拍壁纸觉得卡：首页移动 p90 46 ms，编译后 28 ms）。连同 APK 自带的 .dm 一起装，安装时就按基线 profile 编译；`tools/install.sh` 在 Android 9 及以上也这么装。
@@ -554,21 +554,21 @@ adb -s $XIAOMI_TV:5555 shell "dumpsys package dexopt | grep -A2 'app.orchard.tv\
 ## 调试技巧
 
 - **截图**：`adb shell screencap -p /data/local/tmp/x.png && adb pull ...`（小米用 `/data/local/tmp`，TCL 用 `/sdcard`）。用完要删掉。
-- **帧率**：`adb shell dumpsys gfxinfo app.orchard.tv reset`，操作几下，再执行 `... framestats`，看 `SwapBuffers→GpuCompleted` 这一段的耗时。
-- **守护状态**：`dumpsys accessibility | grep -E "label=(Aerial|app.orchard.tv)"`（有输出就是已绑定；小米 ASTP0 上标签显示成类名）；日志 tag 是 `AerialGuard`。
+- **帧率**：`adb shell dumpsys gfxinfo com.ts.launcher reset`，操作几下，再执行 `... framestats`，看 `SwapBuffers→GpuCompleted` 这一段的耗时。
+- **守护状态**：`dumpsys accessibility | grep -E "label=(Aerial|com.ts.launcher|app\.orchard\.tv)"`（有输出就是已绑定；小米 ASTP0 上标签显示成类名）；日志 tag 是 `AerialGuard`。
 - **壁纸**：日志 tag 是 `AerialWallpaper`。
-- **logcat 看不到 App 日志的电视**（创维 7T631_T60）：`adb shell dumpsys activity app.orchard.tv/.MainActivity` 末尾打印 `DiagLog` 最近的记录（启动、显示模式、绘制、按键、焦点、屏保、加载耗时）；诊断版（`./gradlew -Pdiag ...`，版本名带 `-diag`）或 `ConfigReceiver --ez diag true` 之后还写进 `/sdcard/Android/data/app.orchard.tv/files/aerial-diag.log`，可以 `adb pull`。试验开关（下次启动生效）：`--ez mode_switch false` 不切刷新率（诊断版默认就不切），`--ez soft_layer true` 用软件绘制首页。
+- **logcat 看不到 App 日志的电视**（创维 7T631_T60）：`adb shell dumpsys activity com.ts.launcher/app.orchard.tv.MainActivity` 末尾打印 `DiagLog` 最近的记录（启动、显示模式、绘制、按键、焦点、屏保、加载耗时）；诊断版（`./gradlew -Pdiag ...`，版本名带 `-diag`）或 `ConfigReceiver --ez diag true` 之后还写进 `/sdcard/Android/data/com.ts.launcher/files/aerial-diag.log`，可以 `adb pull`。试验开关（下次启动生效）：`--ez mode_switch false` 不切刷新率（诊断版默认就不切），`--ez soft_layer true` 用软件绘制首页。
 - **机型适配信息**：`TV=<ip> tools/report.sh`（只读）生成可以贴进 issue 的 `aerial-report-<机型>.md`，macOS 上顺便复制到剪贴板；用户也可以在手机页最下面「反馈问题」里复制。issue 表单是 `.github/ISSUE_TEMPLATE/device.yml`。内容和隐私边界见 ARCHITECTURE.md「诊断报告」。
-- **测应用内升级**：`ConfigReceiver --ez check_update true` 立刻检查；`--ez update_test true` 让「下载并安装」用推到 `Android/data/app.orchard.tv/files/update-test.apk` 的包（测完删掉这个文件）。见 ARCHITECTURE.md「升级」。
+- **测应用内升级**：`ConfigReceiver --ez check_update true` 立刻检查；`--ez update_test true` 让「下载并安装」用推到 `Android/data/com.ts.launcher/files/update-test.apk` 的包（测完删掉这个文件）。见 ARCHITECTURE.md「升级」。
 - **手机配置页**：令牌不写日志，从电视截图里识别二维码即可：`swift tools/qr-from-screenshot.swift shot.png`。
-- **剖析 release 包**：临时加 `<profileable android:shell="true" />`（不要提交），`simpleperf record --app app.orchard.tv -e cpu-clock -g`，用同一次编译的 mapping.txt 还原符号。见 [PERF-2026-10-28.md](PERF-2026-10-28.md)「怎么剖析 release 包」。
+- **剖析 release 包**：临时加 `<profileable android:shell="true" />`（不要提交），`simpleperf record --app com.ts.launcher -e cpu-clock -g`，用同一次编译的 mapping.txt 还原符号。见 [PERF-2026-10-28.md](PERF-2026-10-28.md)「怎么剖析 release 包」。
 - **逐层找开销**：`ConfigReceiver --es skip_layers picture,shade,plate,clock,pill,tiles,shadow,names`，下一帧生效，不保存，`--es skip_layers ""` 恢复。
 - **影片壁纸下测**：`ConfigReceiver --es wallpaper aerial:live`（回复 `wallpaper_before=… aerial_quality=…`，测完用同一开关换回原值），再 `tools/perf.py <serial> film_idle film_row`。
 - **按操作测卡顿**：`python3 tools/perf.py <serial> [row row_hold grid cc wallpaper menu idle saver cold]`。脚本自动按键，读 `gfxinfo framestats`，打印中位数、p90、主线程和 GPU 时间。测之前先装 release 版并 compile speed。A/B 对比时用 `ConfigReceiver --es effects auto|full|lite`、`--es aerial_quality auto|1080p|4k|dolby_vision` 切换（这两项是户主的设置，测完要还原）。`setprop debug.hwui.overdraw show` 加上 `service call activity 1599295570` 可以看过度绘制，**测帧之前一定要关掉**，开着时 GPU 时间会多一半。
-- **立即预览屏保**：`adb shell am start -a app.orchard.tv.PREVIEW_SCREENSAVER -n app.orchard.tv/.MainActivity`；TCL 上测系统屏保：`am start -n com.android.systemui/.Somnambulator`。
-- **模拟小米的待机清理**：`adb shell am force-stop app.orchard.tv`，然后看日志里出现 `revived by the notification listener binding`。
-- **配置**：`adb shell am broadcast -a app.orchard.tv.CONFIG -n app.orchard.tv/.guard.ConfigReceiver --ez keep_adb true`。
-- **磁贴对比图**：`adb shell am broadcast -a app.orchard.tv.CONFIG -n app.orchard.tv/.guard.ConfigReceiver --es export_tiles before`，等日志 `AerialTiles` 出现 `Wrote`，再 `adb pull /sdcard/Android/data/app.orchard.tv/files/tiles/before.png`。改 `TileArt` 或 `TileRecipes` 前后各导一次。别的电视上的 App 不用装：把 APK 去掉 `lib/`、`assets/`、`*.dex` 之后推到 `files/tiles/apks/`，会按「装上了」的样子画在后面（名字后带「·」）。这个目录是自己建的，用完可以整个删掉。
+- **立即预览屏保**：`adb shell am start -a app.orchard.tv.PREVIEW_SCREENSAVER -n com.ts.launcher/app.orchard.tv.MainActivity`；TCL 上测系统屏保：`am start -n com.android.systemui/.Somnambulator`。
+- **模拟小米的待机清理**：`adb shell am force-stop com.ts.launcher`，然后看日志里出现 `revived by the notification listener binding`。
+- **配置**：`adb shell am broadcast -a app.orchard.tv.CONFIG -n com.ts.launcher/app.orchard.tv.guard.ConfigReceiver --ez keep_adb true`。
+- **磁贴对比图**：`adb shell am broadcast -a app.orchard.tv.CONFIG -n com.ts.launcher/app.orchard.tv.guard.ConfigReceiver --es export_tiles before`，等日志 `AerialTiles` 出现 `Wrote`，再 `adb pull /sdcard/Android/data/com.ts.launcher/files/tiles/before.png`。改 `TileArt` 或 `TileRecipes` 前后各导一次。别的电视上的 App 不用装：把 APK 去掉 `lib/`、`assets/`、`*.dex` 之后推到 `files/tiles/apks/`，会按「装上了」的样子画在后面（名字后带「·」）。这个目录是自己建的，用完可以整个删掉。
 
 ## 必须遵守（踩过的坑）
 

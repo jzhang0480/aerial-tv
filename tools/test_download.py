@@ -55,7 +55,7 @@ case "$*" in
   connect*) echo connected ;;
   get-state) echo device ;;
   'shell getprop ro.build.version.sdk') echo "$SDK" ;;
-  'shell dumpsys package app.orchard.tv') echo versionCode=1 ;;
+  'shell dumpsys package com.ts.launcher'|'shell dumpsys package app.orchard.tv.lite') echo versionCode=1 ;;
   install*)
     cp "$3" "$INSTALLED"
     # Stop immediately after recording the bytes supplied to installation.

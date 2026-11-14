@@ -47,7 +47,7 @@ esac
             harness = root / 'harness.sh'
             harness.write_text('set -euo pipefail\n' + helper + '''
 SERIAL=example.invalid:5555
-PKG=app.orchard.tv
+PKG=com.ts.launcher
 if tcast_install "$APK" 123; then
   echo TCAST_OK
 else

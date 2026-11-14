@@ -104,7 +104,7 @@ At the end, paste the raw output of these commands from the "Check" section, not
 - adb shell "dumpsys window | grep mCurrentFocus" after pressing Home
 ```
 
-Phone apps and web chats, including Doubao on a phone, only tell you the steps; they can't run anything. Use a desktop build that can (Doubao for desktop or Doubao Work, WorkBuddy, Qwen for desktop, Trae, Claude Code, Codex…). When the agent says it's done, check that the `mCurrentFocus` output it pastes includes `app.orchard.tv`.
+Phone apps and web chats, including Doubao on a phone, only tell you the steps; they can't run anything. Use a desktop build that can (Doubao for desktop or Doubao Work, WorkBuddy, Qwen for desktop, Trae, Claude Code, Codex…). When the agent says it's done, check that the `mCurrentFocus` output it pastes includes `com.ts.launcher`.
 
 **USB drive (no computer)**: copy an APK to a USB drive and open it with the TV's file manager.
 
@@ -134,11 +134,11 @@ On a TV that only offers Wireless debugging (step 1), `export ADB_PAIR=<pairing-
 ```bash
 adb connect 192.168.1.20:5555
 adb install -r aerial-standard.apk
-adb shell pm grant app.orchard.tv android.permission.WRITE_SECURE_SETTINGS
-adb shell cmd notification allow_listener app.orchard.tv/app.orchard.tv.guard.RevivalListener
-adb shell appops set app.orchard.tv SYSTEM_ALERT_WINDOW allow
-adb shell am start -n app.orchard.tv/.MainActivity
-adb shell cmd package compile -m speed -f app.orchard.tv
+adb shell pm grant com.ts.launcher android.permission.WRITE_SECURE_SETTINGS
+adb shell cmd notification allow_listener com.ts.launcher/app.orchard.tv.guard.RevivalListener
+adb shell appops set com.ts.launcher SYSTEM_ALERT_WINDOW allow
+adb shell am start -n com.ts.launcher/app.orchard.tv.MainActivity
+adb shell cmd package compile -m speed -f com.ts.launcher
 ```
 
 The last line makes Aerial smoother on the TV: run it about 5 seconds after Aerial shows, and it takes some tens of seconds. Without it, Aerial is only compiled at its next update from Control Center.

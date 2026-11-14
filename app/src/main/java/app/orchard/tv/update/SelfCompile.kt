@@ -78,9 +78,9 @@ object SelfCompile {
     private fun systemWorthIt(context: Context) =
         Build.VERSION.SDK_INT in 24..30 && !askedSystemThisInstall(context) && uncompiled(context)
 
-    /** Whether reinstalling would help: Android 9+, the official package, uncompiled, metadata in the APK, not tried for this version. */
+    /** Whether reinstalling this APK would help: Android 9+, uncompiled, metadata in the APK, not tried for this version. */
     private fun worthIt(context: Context): Boolean {
-        if (Build.VERSION.SDK_INT < 28 || !Updates.canInstall(context) || triedThisVersion(context)) return false
+        if (Build.VERSION.SDK_INT < 28 || triedThisVersion(context)) return false
         val odex = odexBytes(context) ?: return false
         return odex < COMPILED_BYTES && Updates.ownDexMetadata(context) != null
     }

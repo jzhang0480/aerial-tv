@@ -40,7 +40,7 @@ object RevivalSync {
         // Accounts live in credential storage.
         if (!GuardSetup.isUserUnlocked(context)) return
         runCatching {
-            // Normally app.orchard.tv; an isolated test build must not share the owner's account.
+            // Normally com.ts.launcher; an isolated test build must not share the owner's account.
             val accountType = context.packageName
             val accounts = AccountManager.get(context)
             val account = accounts.getAccountsByType(accountType).firstOrNull()

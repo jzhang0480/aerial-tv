@@ -401,7 +401,7 @@
 请先完整读完安装说明再动手，然后在我的电脑上亲自运行命令，不要只把步骤告诉我。需要我在电视上操作时提醒我。
 最后按说明里的「验收」，把下面几条命令的原始输出原样贴给我，不要只写「成功」：
 - adb shell "cmd package resolve-activity --brief -a android.intent.action.MAIN -c android.intent.category.HOME"（解析到的桌面）
-- adb shell settings get secure enabled_accessibility_services（里面有没有 app.orchard.tv/app.orchard.tv.guard.HomeGuardService）
+- adb shell settings get secure enabled_accessibility_services（里面有没有 com.ts.launcher/app.orchard.tv.guard.HomeGuardService）
 - 按主页键后的 adb shell "dumpsys window | grep mCurrentFocus"
 如果没有安装成功，直接告诉我卡在哪一步。`,
     adapt: (ip, guide) =>

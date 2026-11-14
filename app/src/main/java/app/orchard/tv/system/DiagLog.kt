@@ -16,10 +16,10 @@ import java.util.concurrent.Executors
  * A log of its own for firmwares whose logcat shows nothing from apps (Skyworth 7T631_T60,
  * Android 13: black Home, remote did nothing, no app line in logcat). Every line also goes to
  * logcat. The last lines are kept in memory and printed by
- *   adb shell dumpsys activity app.orchard.tv/.MainActivity
+ *   adb shell dumpsys activity com.ts.launcher/app.orchard.tv.MainActivity
  * and, in a diagnostic build (`./gradlew -Pdiag ...`) or after
- *   adb shell am broadcast -a app.orchard.tv.CONFIG -n app.orchard.tv/.guard.ConfigReceiver --ez diag true
- * also written to Android/data/app.orchard.tv/files/aerial-diag.log, which `adb pull` can fetch.
+ *   adb shell am broadcast -a app.orchard.tv.CONFIG -n com.ts.launcher/app.orchard.tv.guard.ConfigReceiver --ez diag true
+ * also written to Android/data/com.ts.launcher/files/aerial-diag.log, which `adb pull` can fetch.
  */
 object DiagLog {
     private const val TAG = "AerialDiag"

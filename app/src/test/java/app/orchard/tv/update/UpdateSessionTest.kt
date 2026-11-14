@@ -15,6 +15,7 @@ import androidx.core.content.FileProvider
 import app.orchard.tv.BuildConfig
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -60,6 +61,14 @@ class UpdateSessionTest {
         // Aerial installed itself last, so from Android 12 the update may go through silently.
         if (Build.VERSION.SDK_INT >= 31) shadowOf(app.packageManager).setInstallSourceInfo(app.packageName, app.packageName, app.packageName)
         Updates.onHomeResumed()
+    }
+
+    @Test
+    fun renamedPackageCannotInstallPublicReleaseButCanUseExplicitTestApk() {
+        assertEquals("com.ts.launcher", app.packageName)
+        assertFalse(Updates.canInstall(app))
+        Updates.testApk = File(app.cacheDir, "update-test.apk").apply { writeBytes(byteArrayOf(1, 2, 3)) }
+        assertTrue(Updates.canInstall(app))
     }
 
     @Test
