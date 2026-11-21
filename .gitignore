@@ -6,7 +6,8 @@ local.properties
 .kotlin/
 
 # Machine- and household-specific: TV addresses, signing key. Hand over privately.
-local/
+# Anchored to the root so docs/local/ (local fork notes) can be tracked.
+/local/
 .DS_Store
 
 # Copied into the website by tools/deploy-site.sh: the latest release's APKs and the install scripts.
