@@ -14,6 +14,7 @@
     <string name="cc_settings">Settings</string>
     <string name="cc_volume">Volume</string>
     <string name="cc_muted">Muted</string>
+    <string name="cc_volume_external">On the sound system</string>
     <string name="cc_home_default">Aerial is your home screen</string>
     <string name="cc_home_guarded">Home Guard is on</string>
     <string name="cc_home_not_default">Not the default home screen</string>
@@ -240,6 +241,7 @@
     <string name="weather_thunder">Thunderstorms</string>
     <string name="weather_temperature">%1$d°</string>
     <string name="weather_high_low">H:%1$d°  L:%2$d°</string>
+    <string name="weather_hours_ago">%d h ago</string>
     <string name="st_columns">Apps per Row</string>
     <string name="st_columns_hint">How many apps fit across Home, and in folders. Six shows more at a glance; four makes them larger, easier to see from across the room.</string>
     <string name="st_peek">Second Row</string>
@@ -269,6 +271,8 @@
     <string name="st_play_hint">When still: after 10 seconds on the top row (either row in two rows); a key stops it. Always: keys do not stop it, and it is shaded a little; it stops when you go further down to the apps.</string>
     <string name="ss_show_time">Time</string>
     <string name="ss_show_time_hint">The time over the aerial and photo screensavers. The time and place name move a little now and then, so nothing stays on the same pixels.</string>
+    <string name="ss_show_caption">Place</string>
+    <string name="ss_show_caption_hint">The place name bottom left on the aerial screensaver, and the picture\'s title on the photo screensaver.</string>
 
     <!-- Kids and Elders mode (settings/Restricted) -->
     <string name="kids_title">Kids and Elders</string>
@@ -324,4 +328,12 @@
     <string name="kids_blocked">%s is not allowed here</string>
     <string name="kids_warn">%d min of TV left</string>
     <string name="kids_warn_break">A break in %d min</string>
+    <string name="a11y_delete">Delete</string>
+    <string name="cc_about">About Aerial</string>
+    <string name="cc_about_update">Software Update</string>
+    <string name="cc_about_latest">Up to Date</string>
+    <string name="cc_about_version">Version %1$s</string>
+    <string name="ss_sleep">Standby</string>
+    <string name="ss_sleep_hint">No screensaver: when the time comes, the TV goes to standby, as with its power button. Many TVs then wake only with the power button.</string>
+    <string name="cc_update_to">Update to %1$s</string>
 </resources>

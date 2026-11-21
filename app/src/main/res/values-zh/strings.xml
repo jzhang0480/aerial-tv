@@ -13,6 +13,7 @@
     <string name="cc_settings">设置</string>
     <string name="cc_volume">音量</string>
     <string name="cc_muted">已静音</string>
+    <string name="cc_volume_external">由音响控制</string>
     <string name="cc_home_default">Aerial 是默认桌面</string>
     <string name="cc_home_guarded">桌面守护已开启</string>
     <string name="cc_home_not_default">尚未设为默认桌面</string>
@@ -239,6 +240,7 @@
     <string name="weather_thunder">雷雨</string>
     <string name="weather_temperature">%1$d℃</string>
     <string name="weather_high_low">最高 %1$d℃  最低 %2$d℃</string>
+    <string name="weather_hours_ago">%d 小时前</string>
     <string name="st_columns">每排 App</string>
     <string name="st_columns_hint">主屏幕和文件夹里每排放几个 App。6 个一眼看到更多；4 个图标更大，离得远也看得清。</string>
     <string name="st_peek">第二排</string>
@@ -268,6 +270,8 @@
     <string name="st_play_hint">静止时：在第一排（双排时前两排）停 10 秒后播放，按键停下。一直：按键不停，背景压暗一点；再往下进入其余 App 时停下。</string>
     <string name="ss_show_time">时间</string>
     <string name="ss_show_time_hint">航拍和照片屏保上的时间。时间和地名会不时挪一点位置，避免烧屏。</string>
+    <string name="ss_show_caption">地点</string>
+    <string name="ss_show_caption_hint">航拍屏保左下角的地名，照片屏保上的图片标题。</string>
 
     <!-- Kids and Elders mode (settings/Restricted) -->
     <string name="kids_title">儿童与长辈模式</string>
@@ -323,4 +327,12 @@
     <string name="kids_blocked">「%s」不在这个模式里</string>
     <string name="kids_warn">还能看 %d 分钟</string>
     <string name="kids_warn_break">%d 分钟后休息一下</string>
+    <string name="a11y_delete">删除</string>
+    <string name="cc_about">关于 Aerial</string>
+    <string name="cc_about_update">软件更新</string>
+    <string name="cc_about_latest">已是最新</string>
+    <string name="cc_about_version">版本 %1$s</string>
+    <string name="ss_sleep">待机</string>
+    <string name="ss_sleep_hint">不放屏保：时间到了让电视待机，和按电源键一样。很多电视之后只能用电源键开机。</string>
+    <string name="cc_update_to">更新到 %1$s</string>
 </resources>

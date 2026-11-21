@@ -2,6 +2,155 @@
 
 写给接手 Aerial 的人或 AI。先读这份，再读 [ARCHITECTURE.md](ARCHITECTURE.md) 和 [devices/](devices/)。
 
+## 现状（2026-11-21）
+
+- **2.15（versionCode 157），Lite 1.38（40），2026-11-21 下午发布**（[v2.15](https://github.com/pengchujin/aerial-tv/releases/tag/v2.15)）：「从图标库选…」挤成细条、不能搜（微博评论）。iPhone Safari 里网格自己带 `max-height` 和滚动，WebKit 把 262 张图的行全压进 52vh，每张只剩几像素高。现在滚动放在外面一层 `.libscroll`，16:9 设在图片上，每张下面写 App 名，顶部加搜索框（16px，不触发放大），这个 App 自己的图在前、电视上装了的其次。索引加 `names`（`tools/icons/names.tsv`：中文名、英文名、别的叫法，208 个 App 写了 155 个，来源是两台电视上的名字、TCL APK 用 aapt2 读的名字、le5inioo.tsv、图上的字；认不准的没写），电视记下后 `api/library/all` 带 `name`，Lite 同步。验证：`tools/test_icon_library.py` 6 个、`IconLibraryTest`、三个 release 包编译、Lite lint；iOS 模拟器 Safari 通过本机代理打开小米 MFTR0 的手机页（页面用新文件，名字由代理按新索引补上），中英文、深浅色，搜「bili」「b站」「腾讯」「芒果」「music」都对，没装的 App 也有名字。三个包签名 e089…6685，standard / guard 单测、Lite lint 通过。两台装正式包回归：小米 MFTR0（install-multiple + 31.dm，speed-profile / install-dm）selftest 守护、主页键从设置 0.3 s、8 个信号源；TCL（`tcast-push.py`，uiautomator 确认焦点在「同意」后确定，compile speed）selftest 守护、主页键从浏览器 0.5 s、7 个信号源，两个 walleve 服务不变。Release 三个 APK 字节数：standard 3232749、guard 3232640、lite 1011615。**没做**：没在真 iPhone 上看、没替户主换图标；官网已部署（户主自己跑的 `tools/deploy-site.sh`，自动模式不让代理部署）：两个域名 version.txt=v2.15，notes.json 第一条 2.15，三个 APK 字节数和 Release 一致，`icons/index.json` 有 155 个 `names`，`/diag/aerial-710.apk` 还在。两台电视是在部署前装的 2.15，当时读到的是没有名字的旧索引、`checked_by` 已记成 157，所以要等 12 小时一到重读才有名字（部署后才升级的电视马上就有）；小米上手机页名称这一步还没在真机上看到。下次发版 versionCode ≥ 158，Lite ≥ 41。
+
+- **2.14（versionCode 156），Lite 1.37（39），2026-11-21 上午发布**（[v2.14](https://github.com/pengchujin/aerial-tv/releases/tag/v2.14)）：下面巡检的全部修复。三个包签名 e089…6685。两台装正式包回归：小米 MFTR0（install-multiple + 31.dm，speed-profile / install-dm）selftest 守护、主页键从设置 0.3 s、8 个信号源；TCL（`tcast-push.py`，uiautomator 确认焦点在「同意」后确定，compile speed）selftest 守护、主页键从浏览器 0.3 s、7 个信号源，两个 walleve 服务不变。官网已部署：两个域名 version.txt=v2.14，notes.json 第一条 2.14，三个 APK 字节数和 Release 一致（standard 3231699、guard 3231548、lite 1010547），`tools/install.sh` 带上了海信空属性的改动，`/diag/aerial-710.apk` 还在。#1661 #1668 #1671 #1673 #1681 #1606 #1679 和 PR #1660 贴了发布链接（`local/triage/release-2.14-posts.py`），issue 都留着等确认。下次发版 versionCode ≥ 157，Lite ≥ 40。
+
+- **2026-11-21 上午全量巡检**（记录 `local/triage/2026-11-21-full.md`，回复 `replies-2026-11-21.py`，发出 `posted-2026-11-21.txt`，39 条，关闭 20 个）：337 issue / 69 PR，新的或有新回复的 25 个（复查又来 #1554）逐个读过。改动（每个一个提交，已随 2.14 发布）：
+  - **峰米亮度**（#1661，8199f4e）：2.13 只认 FengOS 设置面板，小明 Q1 Pro（olaf）没有面板，亮度行还在；现在装有峰米桌面 `com.tvfengmi.launcher` 也算（Ultraman 投影也有这个桌面，同样不显示）。Lite 同步。没有真机。
+  - **电量**（#1671 #1673 #1681，6d639dc）：插着电就不显示（MECOOL 盒子一直报「有电池、USB、充电中 42%」，平板改的盒子插电 85%），只在用电池时显示；去掉了「充电中」状态。Lite 同步。两台测试电视都没电池，这个场景没在真机上验证。
+  - **个性化页上下乱窜**（#1606，d337d47）：「关于 Aerial」加到最底以后，「家长密码」「儿童模式」两行还留着获得焦点就滚到底的旧逻辑，和焦点自己的滚动打架。去掉。小米 MFTR0 上录屏逐帧复现、修后验证。Lite 没有对应代码。
+  - **海信 `persist.vt.use_home_pkg` 为空也写**（#1679，4bb7b9b）：属性为空但装有聚好看时，`install.sh` 也改成 Aerial，`aerial_vt_home_pkg` 记 `-`，`restore.sh` 还原时清空；agent.md 中英同步；`tools/test_install.py` / `test_restore.py` 加了用例。属性本身是报告人 Agent 在 MT9603 真机上验证的，脚本没上过海信；**发版时跑 deploy-site 后官网脚本才更新**。
+  - **PR #1660 合入**（a31d5f8）：极米 H3S 唤醒 / 开机后前台是 Home 选择框时守护发一次返回。没有极米真机，报告人实测。
+  - 文档：乐视 X43（7cb2553）、MFTR0 安卓 11 / OS2 开机先出 PatchWall（dd2865d）、峰米亮度、海信两台（MT9603、Hi3751 4.4 Lite）、README 机型表加乐视 C1S（1946b22）。
+- 验证：standard 单测 278 个、Lite lint、install / restore 离线测试 14 个通过；standard / guard 测试包 versionCode 155（**未提交**，`build.gradle.kts` 已改回 154），签名 e089…6685。小米 MFTR0（install-multiple + 31.dm，speed-profile / install-dm）selftest 守护、主页键从设置 0.4 s、8 个信号源，屏保进出录屏无黑帧；TCL（`tcast-push.py`，uiautomator 确认焦点在「同意」后确定，compile speed）selftest 守护、主页键从浏览器 0.3 s、7 个信号源，两个 walleve 服务不变，屏保进出无黑帧（退出那一下 TCL 的录屏没录到，退出后画面停在同一段影片上）。**下次发版 versionCode ≥ 156，Lite ≥ 39（Lite 改了）**。
+- 小米测试时的现场：音频输出在 HDMI ARC 上（小米 QuickMute 静音），控制中心音量行显示「已静音」，不是测试改的，没动。测试中按 OK 打开过一次首页的 HDMI 信号源磁贴，已按主页键回到 Aerial。
+- 等回复：#1683（没写哪里不对）、#1677 海尔 T966 的 RootActivity、#1658 `soft_layer` 试验、#1656 撤掉 Aerial 后 USB 2.0 口、#1682 role 写入后几天的观察、#1629 卡住时的诊断。
+
+## 现状（2026-11-20）
+
+- **2.13（versionCode 154），Lite 1.36（38），2026-11-20 晚上发布**（[v2.13](https://github.com/pengchujin/aerial-tv/releases/tag/v2.13)）：下午巡检的全部修复，加上户主 2026-11-20 定的几件事：
+  - **天气过期读数**（#1576，90f3f1c 83d586c）：读数最多保留 12 小时（`Weather.SHOWN_MS`，重启后也读回来），超过 3 小时在后面标「N 小时前」（`weather_hours_ago`，五种语言）；诊断的 `shown=` 和屏幕一致。Lite 同步，`weatherTick` 每次也重画，让小时数往前走。GoogleTV 模拟器（安卓 13）验证：私有 DNS 指向不存在的主机断网、`cmd alarm set-time` 往后拨，5 小时显示「Singapore 26°C · 5 小时前」（重启 Aerial 后同样），13 小时隐藏，恢复 DNS 后重新取到；模拟器的 DNS 和自动时间已改回。单测 `WeatherAgeTest`。Lite 没上机。
+  - **城市提示**（9e3d11a）：手机页原来就有定位不准的提示，补上「宽带出口在外地」。不加备用天气源（第三方服务器）。
+  - **PR #1556 第 6 个提交**（常驻 `TclSourceWatch` 每 2 秒轮询）不合，PR 关掉。PR #1643 屏保亮度留功能轮次。
+  - **删掉 `adb-by-brand.md` 里第三方开 ADB 工具的链接**（95cd723），和「不推荐其他工具」的原则一致。
+  - 三个包签名 e089…6685，standard 单测 278 个、Lite lint 通过。两台回归：小米 MFTR0（install-multiple + 31.dm，speed-profile / install-dm）selftest 守护、主页键从设置 0.4 s、8 个信号源，亮度行照常；TCL（`tcast-push.py`，uiautomator 确认焦点在「同意」后确定，compile speed）selftest 守护、主页键从浏览器 0.4 s、7 个信号源，屏保预览进出正常，两个 walleve 服务和 AerialDream 不变。官网已部署：version.txt=v2.13，notes.json 第一条 2.13，两个域名上三个 APK 字节数和 Release 一致（standard 3232113、guard 3231931、lite 1010570），`/diag/aerial-710.apk` 还在。#1668 #1630 #1383 #1646 #1651 #1378 #1576 贴了发布链接（`local/triage/release-2.13-posts.py`），都留着开着等确认（#1576 已关，只回复）。下次发版 versionCode ≥ 155，Lite ≥ 39。
+  - **还没修：#1671**（魔百盒谎报电池，2.12 起状态按钮显示电量），等报告人的 `dumpsys battery`。
+
+- **2026-11-20 下午全量巡检**（记录 `local/triage/2026-11-20-full.md`，回复 `replies-2026-11-20.py` / `replies-2026-11-20b.py`，发出 `posted-2026-11-20.txt`）：345 issue / 70 PR，新的或有新回复的 45 个逐个读过；关闭 21 个（含 13 个十天无回音）。main 上未发版的改动（每个一个提交，已推送）：
+  - **#1668 峰米 FengOS 投影亮度**（1c4b7a9）：有 `cn.formovie.fengos.settings` 面板时不显示亮度行、不读写 `screen_brightness`（`SystemProbe.hidesBrightness`，进程内缓存），Lite 同步（`Brightness.hidden`）。报告人 Q3 Pro 实测 FengOS 只认 102，别的值让光机待机唤醒后不亮、卸载也不恢复。我们没真机。#1661 小明 Q1 Pro（olaf，没有那个面板，`screen_brightness=255`，开机黑屏）请报告人写回 102 并断电确认，确认后再按机型加。
+  - **#1630 每日壁纸过零点不换**（f39a5a2）：必应 `startdate` 是 UTC 日期（中国 20 日零点上线那张标 19 日，`fullstartdate` 202611191600），以前拿中国日期比，「今天的图」永远不在。索引存 `start`，上一张上线 24 小时后才该换（`DailyDates.kt`，单测 `DailyDatesTest`），Lite 同步。没等零点实测。
+  - **#1383 / #1391**（affd296）：`dumpsys activity service app.orchard.tv/.guard.HomeGuardService` 打印守护状态和 DiagLog（极米不绑定通知监听，RevivalListener 是 `No services match`）。小米 MFTR0 实测有输出。
+  - **#1646 照片屏保时钟字距**（cba1725）：屏保自己的时钟改成按首页字号排版再放大，和首页带过去的时钟一致。按代码推断，没在照片屏保上实测（两台都是航拍壁纸，没改户主设置）。
+  - **#1651**（e468dce）上传照片按长边算采样；**#1378**（cbfe660）暴风 AML_T962 的直播和信号源栏进「全部 App」，都 Lite 同步，都没真机。README 加大眼橙 C2 Ultra（#1642）；adb-by-brand 加酷开 85A10H、海信笔记加 dream 拆装闪首页（#1599）。
+- 验证：三个包编译、standard 单测 276 个、Lite lint 通过，签名 e089…。测试包 versionCode 仍是 153（没改）：**小米 MFTR0** install-multiple + 31.dm（speed-profile / install-dm），selftest 守护、主页键从设置 0.3 s、8 个信号源，亮度行照常（`Aerial can set it: true`），返回进航拍屏保、按键回首页，录屏没有黑帧（只录到约每秒一帧）。**TCL MT5879** 多屏互动推 guard（uiautomator 确认焦点在「同意」，compile speed），selftest 守护、主页键从浏览器 0.4 s、7 个信号源，屏保预览进出正常，两个 walleve 服务和 AerialDream 不变。下次发版 versionCode ≥ 154，Lite ≥ 38（Lite 改了）。
+- **新的 2.12 回归 #1671**：魔百盒报告「有电池、没插电、42%」，状态按钮显示了电量。已要诊断（`Output` 行）和 `dumpsys battery`，发版前最好修：可能要在 `present` 之外再看电压 / 技术 / 是否播放设备。
+- PR #1660（极米唤醒后关选择框 + 主页键焦点）：请作者拆开，焦点部分会让守护看不到主页键的机型丢掉「首页按主页键回第一行」。交户主：#1576 城市提示 / 旧读数、PR #1556 第 6 个提交、PR #1643 屏保亮度（功能轮次）。
+- 顺带发现：`docs/devices/adb-by-brand.md`「打不开 ADB 的机型」末尾链接了一个第三方开 ADB 工具，和「不推荐其他 App / 工具」的原则冲突，没动，等户主决定是否删掉。
+
+- **2.12（versionCode 153），Lite 1.35（37），2026-11-20 发布**（[v2.12](https://github.com/pengchujin/aerial-tv/releases/tag/v2.12)）：下面「2.11 之后」的全部改动（诊断 Output 行、#1476 #1606 #1436 #1615 #1486 #1426）。三个包签名 e089…6685，standard、guard 单测和 Lite lint 通过。官网已部署：version.txt=v2.12，notes.json 第一条是 2.12，三个 APK 字节数和 Release 一致（standard 3228923、guard 3228862、lite 1009782），`/diag/aerial-710.apk` 还在。#1606 #1436 #1615 #1486 #1426 #1476 贴了发布链接（`local/triage/release-2.12-posts.py`，记录 `posted-2026-11-20.txt`），都留着开着，等报告人确认；#1426 请报告人在 GOOVIS 上确认电量，#1476 请报告人试 TalkBack。
+  - 两台回归：小米 MFTR0（install-multiple + 31.dm，speed-profile / install-dm，长辈模式仍开着、没动）selftest 守护、主页键从设置 0.4 s、8 个信号源；TCL（`tcast-push.py`，uiautomator 确认焦点在「同意」后确定，compile speed）selftest 守护、主页键从浏览器 0.3 s、7 个信号源，两个 walleve 服务和 AerialDream 屏保不变。「待机」「关闭电视」两台都没真的触发过（户主不在电视旁）。adb 一度对两台都报 `No route to host`（端口其实是通的），`adb kill-server` 后恢复。下次发版 versionCode ≥ 154，Lite ≥ 38。
+
+- **2.11（versionCode 152），Lite 1.34（36），2026-11-19 发布**（[v2.11](https://github.com/pengchujin/aerial-tv/releases/tag/v2.11)）：下面这轮巡检的全部改动。版本名从这版起每次加 0.01（见「发版」第 1 步）；versionCode 跳过 151（两台装过 151 测试包）。三个包签名 e089…6685，官网已部署，字节数和 Release 一致（standard 3212338、guard 3212169、lite 1005466），version.txt=v2.11。修过的 #1391 #1626 #1625 #1576 #1383、PR #1624 贴了发布链接（`release-2.11-posts.py`）。
+  - 两台回归：小米 MFTR0（install-multiple + 31.dm，speed-profile / install-dm）selftest 主页键从设置 0.5 s 回、8 个信号源；TCL（install.sh 多屏互动，截图确认焦点在「同意」后确定，compile speed，两个 walleve 服务和 AerialDream 屏保不变）selftest 7 个信号源，主页键装完后第一次 5.2 s（同 1.96 记过的现象），之后三次 0.3–0.4 s；信号源键弹 TCL 面板、按返回回 Aerial。下次发版 versionCode ≥ 153，Lite ≥ 37。
+
+- **2.11 之后（已随 2.12 发布）**：
+  - **诊断加 `Output` 行**（完整版和 Lite 都调用 `OutputDevice.describe`）：`ro.hdmi.device_type`、`ro.build.characteristics` 各自的值和 `playback_device` 判定、`volume_fixed`、`live_tv` / `leanback` / `hdmi_cec` / `television` 四个 feature、电池广播。原来 Settings 行里的 `playback_device`、`volume_fixed` 挪到这里。目的是给「没有信号源的盒子隐藏信号源 / 亮度」的重新设计收集数据：1.89–2.11 的报告里 `playback_device=true` 的有电视（TCL 55L2 #1612、暴风 AML_T962 #1460，大概率是 `characteristics=mbx` 造成的），但以前没打出是哪个信号判的；`TvInputManager` 没有输入的大多是海信、TCL 等真电视，不能用来判断是不是盒子。小米 MFTR0 实测：`device_type=0, characteristics=tv`，四个 feature 都是 true；没有电池却报 `level=100 plugged=1 status=2`，只有 `present=false` 能说明没电池（以后做 #1426 电量要按 `present` 判断）。TCL、Lite 没上真机。
+  - **功能轮次（户主 2026-11-19 定：除完全自动更新外都做）**，测试包 versionCode 仍是 152（没提交）：小米 MFTR0 install-multiple + 31.dm（speed-profile / install-dm）；TCL 多屏互动推 guard（uiautomator 确认焦点在「同意」，compile speed，守护还在）。小米开着户主的长辈模式（临时退出后，Aerial 重启 / 屏保 / 息屏会自动恢复，这是设计），所以界面截图都在 TCL 上拍。
+    - **#1476 读屏**：`Pressable` 加 `semantics(mergeDescendants)`（角色、点击，新参数 `label`），磁贴用 App 名作 `contentDescription`（双击打开、长按菜单），状态按钮读「控制中心」，滑条读「音量」「亮度」，密码键盘删除键读「删除」。TCL 上 uiautomator 看得到 `content-desc`；两台电视都没有读屏 App，没听过 TalkBack 实际朗读。Lite 没做：控件是自绘 View、焦点自己管，要改焦点模型。
+    - **#1606 版本和更新（户主 2026-11-20 从四个方案里选了 A，模拟器截图给户主看过）**：控制中心主页平时不出现版本，只在有新版本时最下面多一行「更新到 x」（蓝点，`MenuRow` 新参数 `dot`，`Palette.Blue`），点进更新页，返回到主页。版本、渠道、桌面状态和「软件更新」（没有新版本时按一下立即检查）放在个性化最底下的「关于 Aerial」一组；`CcPage.About` 去掉了。Lite 同样（没有更新），`Sheet.keepInView` 在最后一行把内容滚到底，否则下面不可聚焦的「关于」看不到。GoogleTV 模拟器（安卓 13）上截图确认：平时、有新版本（versionName 临时改成 2.10 的测试包，读到官网 2.11）、个性化里「更新到 2.11」打开更新页；Lite 个性化最底下。两台电视没装这一版（TCL 待机、小米开着长辈模式）。
+    - **#1615 / #1436 待机**：`HomeGuardService.sleep()` 用 `GLOBAL_ACTION_LOCK_SCREEN`（安卓 9+，守护在运行，`canSleep`）。手机页「这台电视」下面单独一组加蓝色的「关闭电视」（不放红色：它只是待机、不删东西，和 iOS 设置里的「关机」一样；确认框，`/api/power/off`，儿童模式下不要家长密码）；屏保类型加「待机」（`ScreensaverMode.Sleep`，只在 `canSleep` 时出现，只在计时到时待机，返回键 / 立即开始不待机，守护不在时显示时钟）。有「待机」时选项变窄（左右 15dp、间距 8dp），「立即开始」只剩 40dp 的圆形播放按钮（六个选项加文字按钮放不下，第一版在 TCL 上把「类型」挤没了）。**两台电视都没有真的让它待机过**：户主不在电视旁，待机后没人能开机。Lite 没有守护，不做。
+    - **#1486 图标库任选**：手机页 App 菜单加「从图标库选…」，网格列出图标库全部图片（手机直接从官网 `icons/p/` 加载，索引里没有 App 名，靠图上的 logo 认），选中后电视先下载那张再保存（`IconLibrary.fetch`），记成 `borrow:<包名>` = `<来源包名>/<id>`，之后刷新照样下载、保留。Lite 同步（同一个网页）。TCL 上打开过网格（262 张），只发了一个不存在的 id 确认被拒、图标没变；**没有真的替户主换图标**。
+    - **#1426 电量**：状态按钮里加电量和电池图形（`present=true`，并且没插电或不满 100% 才显示；20% 以下不充电时红色）。TCL 上用 `dumpsys battery set present 1 / ac 0 / level 57` 临时假装有电池截图，随后 `dumpsys battery reset`，确认恢复 `present: false`、图标消失。Lite 同步。
+    - **#1392 预加载**：不改代码（航拍和我的视频本来就预加载下一段），回复草稿等户主决定是否发。
+
+- **2026-11-19 全量巡检**（记录 `local/triage/2026-11-19-full.md`，回复 `replies-2026-11-19.py`，发出 `posted-2026-11-19.txt`）：349 issue / 69 PR，有新内容的 33 个逐个读过；维护者最后、超过 10 天没回音的 26 个关掉。main 上未发版的改动（都在 2.1 之后，每个一个提交）：
+  - **#1391 极米 RS Pro 2 开机黑屏**：锁定开机兜底的 `sawScreenEvent` 以前在看事件类型之前就置位，开机时 `com.android.newsettings/CellView`（View，不是 Activity）一条事件就永久挡住兜底。现在只认窗口状态变化 + 类名能解析成 Activity（`MATCH_DIRECT_BOOT_AWARE|UNAWARE`）+ 非 Dialog、非 FallbackHome（`HomeGuardService.isScreenEvent`）。`DiagLog.init` 建文件时补写内存里更早的行，守护在解锁时建文件。没真机。
+  - **#1626 创维 8R40_G20 老年模式**：`ElderMainActivity` 加进 `FIRMWARE_HOMES_WITHOUT_FILTER`，`CoocaaHome.modeScreen` 按 `persist.service.model.cls` 补。没真机。
+  - **#1625 TCL r34a0（安卓 5.1）**：`SHOW_WINDOW` 不带参数会让 `ShowWindowService` 空转、设置键失灵 → 带设置键的 `Type=Settings`、`flag="1"`（MT5879 `tcl-service.jar` 的 `TclShortCutKeyManager.keySetShortPress`），Lite 同步。TCL MT5879 上从控制中心亮度行实测仍开图像页；r34a0 没真机。
+  - **#1576 天气**：首页一直在前台（包括 Aerial 自己的屏保）时以前不再检查，失败后 13 小时只试一次、读数 3 小时后消失 → `Weather.whileShown`：到期就取，失败后 3/6/12…分钟退避到 1 小时；Lite 每 3 分钟问一次是否到期。备用天气源 / 显示过期读数交户主。
+  - **#1383**：`dumpsys activity service app.orchard.tv/.guard.RevivalListener` 也打印守护状态（首页不在时的诊断入口，小米 MFTR0 实测有输出）。
+  - **合 PR #1607**（kanshurichard，Vidda VL7R-PRO 文档，squash，作者保留）；**合 PR #1624 第一部分**（icandy7272，微鲸开机关电源呼吸灯，`WhaleyBoot`，作者 WTV55K1J 实测；第二部分按 HDMI 有无设备选开机口留功能轮次）。
+- 验证：`assembleStandardRelease assembleGuardRelease :lite:assembleRelease`、standard 单测、`:lite:lintRelease` 通过，签名 e089…6685。测试包 versionCode **151**（没提交）：**TCL MT5879** 多屏互动推 guard（截图确认焦点在「同意」后确定，compile speed）：selftest 主页键从 TCL 浏览器 0.4 s 回、7 个信号源；控制中心亮度行开 TCL 图像页；按返回进航拍屏保（接着壁纸那段片）、按键回首页（这次 screenrecord 只录到 6–10 帧，过渡没能逐帧看，靠日志 + 截图）。**小米 MFTR0**（户主在电视上重新点了 ADB 授权；install-multiple + 31.dm，speed-profile / install-dm）：selftest 主页键从设置 0.4 s 回、8 个信号源；按返回进屏保、按返回回首页；RevivalListener dump 有守护行。下次发版 versionCode ≥ 152（两台都装过 151），Lite ≥ 36。
+- 没真机验证：#1391 #1626 #1625（r34a0）、PR #1624 第一部分；天气「被封后自己恢复」没复现，两台只确认这版能正常取到天气。开机（REBOOT）没在两台上跑。
+- 要信息：#1638 小米 2.1 电源键关不了机（App 里没有电源键处理，2.0/2.1 没改按键；户主的 MFTR0 上没用实体遥控器试）、#1636 索尼首页冻结（`Activity pause timeout`，要 RevivalListener dump）、#1635 ak30a4 固件自己切 Live TV、#1631 雷鸟雀4 亮度、#1629 #1630 #1623 #1599 #1552。
+- 复查（`raw-2026-11-19b`）：新 issue #1641（海信 T963D4 U 盘装、没授权，重启回聚好看）、#1639（只有标题）要了信息；最后仍是用户发言的只剩定了不回的 21 个。
+- 交户主：PR #1637（其他 App 闲置时显示 Aerial 屏保）、PR #1632（西班牙语）、PR #1624 第二部分、#1576 备用天气源 / 显示过期读数。
+
+## 现状（2026-11-18）
+
+- **2.1（versionCode 150），Lite 1.33（35），2026-11-18 发布**（[v2.1](https://github.com/pengchujin/aerial-tv/releases/tag/v2.1)）：下面这轮巡检的全部修复（#1609 #1622 #1612 #1339 #1597/#1614，PR #1556 前 5 个提交）。版本号跳过 149（TCL 装过 149 测试包）。官网已部署，三个包字节数和 Release 一致（standard 3211354、guard 3211292、lite 1005200），version.txt = v2.1；给 #1612 #1339 #1614 #1597 #1609 #1622 和 PR #1556 贴了复测链接，PR #1556 第 6 个提交仍等户主。
+  - 两台回归：小米 MFTR0（install-multiple + 31.dm，speed-profile / install-dm）selftest 主页键从设置 0.4 s 回、信号源 8 个；TCL（install.sh 多屏互动，截图确认焦点在「同意」后确认，compile speed，两个 walleve 服务和 AerialDream 屏保不变）主页键 0.4 s 回、信号源键弹 TCL 面板、按返回回 Aerial。
+
+- **2026-11-18 全量巡检**（记录 `local/triage/2026-11-18-full.md`，回复 `replies-2026-11-18.py`）：340 issue / 67 PR，最后是用户发言的 32 个新条目逐个读过。main 上未发版的改动（都在 2.0 之后）：
+  - **#1612 TCL 55L2 信号源键双弹窗**（Amlogic p34a5，安卓 5.1.1）：固件的 `com.tcl.sourcemananger`（原文如此）自己弹信源窗又把键交给 Aerial。装着这个包时首页不接信号源键（`SystemProbe.tclSourceManagerPanel`，并进 `firmwareInputPanel`）。没真机。
+  - **#1339 暴风 AML_T962**（安卓 9）：没有信号源列表时 `openInputPicker` 打开 `com.bftv.fui.biu/.views.activity.FRowActivity`；设置、网络打开 `com.baofengtv.settings/.MainActivity`（都只在导出时）。Lite 同步。没真机。
+  - **#1597 #1614 腾讯极光盒子 7**（BA102，安卓 14）：设置优先 `com.skyworthdigital.settings/.activity.MainActivity`，有线网络 `EthernetSettingActivity`。主页键闪固件桌面是 `block home apk`，固件限制。没真机。
+  - **#1609 「系统内置」屏保还回去**：`GuardSetup.screensaverModeChanged` 选「系统内置」时打开之前因「从不」关掉的 `screensaver_enabled`，组件是 Aerial 的就还给 `screensaver_default_component` 并记 `own_screensaver`（不再要求安装脚本设过）；回到别的类型且「从不」时再关。`MainActivity.restartIdleTimer` 不再需要常亮时清 `FLAG_KEEP_SCREEN_ON`（屏保显示时不清）。验证：安卓 9 模拟器 aerial28 按报告步骤走一遍（从不 → 0；系统内置 → 1、组件回 deskclock；航拍 → 组件回 Aerial、0）。常亮那条只按代码改，没在 TCL / 酷开 C10 那类机器上测。
+  - **#1622 「我的视频」底层图**：TCL 解析器 / `filmGlassless` 下 `Wallpapers.firstVideoFrame` 改用 `FilmKeyFrame`（经 `AerialStream.keyFrameOfFile`，和玻璃串行）读第一帧关键帧存海报，失败的片子这次运行里不再试；`FilmKeyFrame` 加 AV1（只用 AOSP 软件解码器）。验证：TCL MT5879 测试包 149，H.264 片 414 ms 读出、首页网格下面变成影片画面；AV1 片仍落回渐变（这台只有硬件 AV1 解码器）。
+  - **合 PR #1556 前 5 个提交**（zknb-666，Lite TCL MS901 信号源：固件口表、只回 Lite 切过的源、MS901 的 STORAGE 能力例外），补了一处 `Cursor.use`（API 14 lint）。第 6 个提交（常驻 `TclSourceWatch` 每 2 秒读前台 App + 开机广播）交户主决定。没有 MS901；Lite 在 aerial21 模拟器上启动、开控制中心不崩。
+  - README 两份补创维 65M9（#1613）。
+- 验证：`assembleStandardRelease assembleGuardRelease :lite:assembleRelease`、两套单测、`:lite:lintRelease` 通过，签名 e089…6685。小米 MFTR0 装了本地 standard release（versionCode 仍 148，install-multiple + 31.dm，speed-profile / install-dm）：selftest 主页键 0.3 s 回、信号源 8 个、按返回进航拍屏保再退出。TCL MT5879 多屏互动推了 **guard 测试包 versionCode 149（没提交）**，compile speed，两个 walleve 服务保留：主页键 0.4 s 回、信号源键弹 TCL 面板、按返回进屏保再退出、`Somnambulator` 系统屏保按键回 Aerial。（已随 2.1 发版，versionCode 150。）
+- 测试时动过的户主数据：小米上在航拍屏保里按了一次右键，片子集合从 `9CCB8297,2B30E324,DE851E6D` 变成 `024891DE,9CCB8297,2B30E324`（右键会立刻换进一段新片，和每天自动换一段是同一个机制，没有接口改回）。以后在小米屏保里退出用返回 / 确定，不要按左右。TCL 上临时把壁纸换成两段自己上传的测试视频，已改回 aerial:live，两段视频（5441259…、879a56b…）已按 id 删除。
+- 不合 / 交户主：PR #1607（Vidda VL7R-PRO 文档，含停用聚好看、语音包和 Key Mapper，请作者删掉）、PR #1620 #1610（功能）、PR #1556 第 6 个提交。
+
+## 现状（2026-11-17）
+
+- **2.0（versionCode 148），Lite 1.32（34），2026-11-17 发布**（[v2.0](https://github.com/pengchujin/aerial-tv/releases/tag/v2.0)）：屏保地点开关（#1583）和下面这轮巡检的全部修复，加上小米 keep_adb 修复。版本名用 2.0 而不是 1.100（1.100 看起来比 1.99 旧；`Updates.newer` 按数字逐段比，2.0 > 1.99）。官网已部署，三个包字节数和 Release 一致，version.txt = v2.0；给 #1580 #1588 #1599 #1584 #1569 #1583 贴了复测链接，PR #1587 发版后关闭。
+  - **keep_adb（户主的小米 MFTR0）**：这台的 `keep_adb` 早就变成 false（多半是 1.89–1.97 的 #1537 那个误判），所以每次唤醒固件关掉 ADB 后没人打开。另外这台待机时进程和守护绑定可能一直活着，唤醒时固件关 ADB 比 SCREEN_ON 先到，`screenOnAt` 还是上次亮屏，「亮屏多久」算成几小时，就会把它当成用户关的、结束 keep_adb。改成：守护记着屏幕已灭（`screenOff`）时，ADB 被关不算用户关的；`ensureAdb` 打开 ADB 时写 DiagLog（小米的 logcat 几分钟就被刷掉）。验证：装 2.0 后用 ConfigReceiver 重新打开户主这台的 keep_adb，`KEYCODE_SLEEP` 待机（这台待机时网络断开），户主遥控器开机：DiagLog `15:32:10 guard: ADB had been switched off; turned it back on (keep_adb)`，端口 5555 开着，keep_adb 仍是 true。注意这次唤醒走的是「待机被杀、复活」路径（`revival: ... guard unbound`），守护整段待机都绑着的那条路径这次没有走到。
+  - 两台回归：小米（install-multiple + 31.dm，speed-profile / install-dm）从小米设置按主页键 1 秒内回 Aerial，信号源列出 HDMI 1/2 等，按返回进屏保、按键退出；TCL（多屏互动推 148，确认焦点在「同意」，compile speed）主页键 2 秒内回、信号源键弹 TCL 面板。
+
+- **2026-11-17 全量巡检**（记录 `local/triage/2026-11-17-full.md`，回复 `replies-2026-11-17.py`）：332 issue / 67 PR，最后是用户发言的 35 个新条目逐个读过。main 上未发版的改动（都在 1.99 之后，和「屏保地点开关」一起发）：
+  - **#1580 信号源键**（飞利浦 TV838，MStar，安卓 6）：没有安卓信号源列表时，首页按遥控器信号源键和控制中心「信号源」按钮一样先 `openInputPicker`（固件面板），打不开才显示「信号源」页；`firmwareInputPanel`（TCL、酷开）不变。Lite 本来不接这个键，没改。
+  - **#1588 Lite 时钟**（安卓 4.4 盒子）：Lite 监听 `TIME_SET` / `TIMEZONE_CHANGED`，立刻刷新桌面、屏保和控制中心的时间；控制中心开着时每分钟刷新。完整版本来就听。
+  - **#1599 海信屏保**（75E3F，安卓 9）：系统屏保开始 3 秒内来自无设备（`deviceId` ≤ 0）的返回键不结束屏保；唤醒日志加设备号。注意：adb `input keyevent` 也是设备 -1，测屏保唤醒要等 3 秒再按。
+  - **#1584 当贝 Z1 Pro**：守护在新进程里绑定（启动 60 s 内、开机窗口外、不是刚升级）且 usage stats 说原桌面在前台时也接管，不当作唤醒（不开开机信号源）。
+  - **合 PR #1587**（sln162，本地 cherry-pick，作者保留）：宽查询（不带 DEFAULT）答 Aerial 时，收框那两段整段跳过（极米首选记录分裂态，#1569）。
+  - README 两份机型表更新极米 RS20 Pro Max（#1483）；机型笔记加当贝 Z1 Pro、海信屏保返回键、酷开 9S67_G30 / 85P7F 属性、新建 `tcl-ak30a5.md`。
+  - 验证：standard、guard 单测通过，Lite lint 通过。**TCL MT5879**（多屏互动推 guard 测试包 versionCode 147，uiautomator 确认焦点在「同意」再按确定，compile speed）：从 TCL 艺术鉴赏按主页键 1 秒内回 Aerial；首页按信号源键只弹 TCL 自己的面板；按返回 0.2 秒进航拍屏保、按键退出（screenrecord 逐帧看过）；Somnambulator 起系统屏保，1.2 秒时 `input keyevent BACK` 被忽略（日志 `Back from no device (-1) 1236 ms in`），6 秒时再按能唤醒；`am start` 原桌面同时 force-stop Aerial，复活后拉回 Aerial（日志有新的那一行，但这台走的是原有的 revived 分支）；在 App 里 force-stop 不会盖住 App。**Lite** 在 aerial21 模拟器（安卓 5.0，aerial18 是 ARM 镜像跑不了，改不了系统时间所以用 `service call alarm 3` 切时区）：桌面时钟 2 秒内变、控制中心开着时时间和日期跟着变、跨整分钟会走。**小米 MFTR0 这轮没测**（5555 拒绝连接，在待机）。**TCL 上装着没提交的测试包 versionCode 147，下次发版 ≥ 148。**
+  - **没真机验证**：#1580（没有 MStar）、#1599（没有海信，只是猜固件注入的键不带设备号）、#1584（没有当贝，TCL 上走的是原有分支）、#1588（没有安卓 4.x 真机）、PR #1587（没有极米）。
+  - 关掉：#1497 #1563（确认修好）、#1483（README 后）、#1594（自制桥接 App 冒充白名单包名，和原则冲突）、#1601（同 #1394）、#1535（固件开机清无障碍、shell 不给授权）、#1514 #1521（TCL ak30a5 按住音量：安卓 9 有按键过滤器时不合成连发，同小米 ≤11）。
+  - 转户主：#1602 低内存且取不到帧时不放航拍影片；#1600 酷开按型号内置 `filterHomeAlways`（同 #1518 #1546）。
+
+## 现状（2026-11-16）
+
+- **未发布（1.99 之后，2026-11-16）：屏保可以关掉地点说明**：个性化 → 屏幕保护程序在「时间」下面加「地点」（开/关，默认开，偏好 `screensaver_caption`），只在航拍、照片屏保时出现；关掉后航拍屏保左下角的地名、照片屏保的图片标题都不画，时间和地点都关时照片屏保下面的压暗也不画。手机页「屏保显示时间」下面加「屏保显示地点」（`screensaverCaption`，五种语言），诊断行加 `saver_caption=`，`ConfigReceiver` 加 `--ez screensaver_clock` / `--ez screensaver_caption`（像主屏幕布局那几项一样经 ADB 改，不过家长密码）。Lite 同样加了（`LiteSettings`、`SaverView`、`Panels`、手机页），共用 strings.xml。按键不变：没有用返回键收起文字（返回键在主屏幕上是进屏保的键，屏保里改成收字幕会让人以为卡住；户主同意）。验证：standard、guard 单测各 272 个通过，Lite lint 通过。**小米 MFTR0**（standard 本地包 versionCode 146 + 31.dm，speed-profile / install-dm）开着户主的长辈模式（有家长密码，控制中心没有个性化，手机页改设置要密码），用 ConfigReceiver 切换：按返回进航拍屏保（接着壁纸放），关地点后左下角没有地名、时间还在；打开后地名马上出现；两项都关时画面上没有字。**TCL MT5879**（多屏互动推 guard 本地包，uiautomator 确认焦点在「同意」，compile speed）在个性化里看到「地点」一行和说明，按确定选「关」，手机页状态同步为关；按返回进航拍屏保只有时间，ConfigReceiver 打开后出现「飞越阿拉伯联合酋长国迪拜码头」。两台最后都改回时间开、地点开（默认），两台都装着这个没提交的本地包（versionCode 146，下次发版 ≥ 147）。**没测的**：照片屏保、系统 Dream 里的屏保、Lite 真机、手机页的开关只确认了页面里有、两台都返回新字段，没在手机浏览器里点过。
+- **1.99（versionCode 146）+ Aerial Lite 1.31（33），2026-11-16 发布**（[v1.99](https://github.com/pengchujin/aerial-tv/releases/tag/v1.99)）：下面这轮巡检的全部改动。versionCode 跳过 145（两台装过 145 测试包）。三个包签名 e089…。发版前**小米 MFTR0** 装 145 测试包（`install-multiple` + 31.dm，speed-profile / install-dm）补测：`selftest.sh` 守护、主页键（从设置 0.5 秒）、`INPUTS=1` 8 个信号源通过；控制中心音量在 HDMI ARC 功放上 8→10→8（已还原，`volume_external=false`，没误判）；个性化上下移动正常；按返回进屏保、按上键回来，两段录屏逐帧亮度最低 95，没有黑帧；无障碍列表、屏保设置没变。正式包：**小米** `install-multiple -r` standard + 31.dm（speed-profile / install-dm），**TCL** `APK_FILE=… KEEP_ADB=1 tools/install.sh guard`（`adb install` 被拒 `INSTALL_FAILED_VERIFICATION_FAILURE` 后走多屏互动，截图 + uiautomator 确认焦点在「同意」后按确定），compile speed；两台 `selftest.sh` 守护、主页键（TCL 从浏览器 0.3 秒、小米从设置 0.4 秒）、信号源（7 / 8 个）通过，TCL 两个 walleve 服务、屏保 AerialDream 保留。官网已部署：`/download/version.txt` = v1.99，notes.json 有 1.99，三个 APK md5 与 Release 一致，`/diag/aerial-710.apk` 还在。12 个 issue + 2 个 PR 贴了发布链接（`local/triage/release-1.99-posts.py`）。**下次发版 versionCode ≥ 147，Lite ≥ 34。**
+- **2026-11-16 巡检（已随 1.99 发布）**，记录 `local/triage/2026-11-16-full.md`（原始 `raw-2026-11-16/`），回复 `replies-2026-11-16.py`，发出 `posted-2026-11-16.txt`。325 issue / 66 PR，用户最后发言 64（18 个上轮定了不回、没有新内容），新的 46 个逐个读过。在主目录分支 `claude/triage-2026-11-16` 上做，合回 main。
+  - 改了（每个单独提交）：
+    - #1568 小米 4C（安卓 6）应用商店只有 MAIN + 自家 action → `UNLISTED_ENTRIES` 加 `com.xiaomi.mitv.appstore/.MainActivity`（Lite 同步）。
+    - #1580 飞利浦 TV838（MStar maxim，安卓 6，TvInputManager 空）：`SOURCE_INFO` 只是一行横幅 → 在它前面先开 `com.mstar.tvsetting/.hotkey.InputSourceListViewActivity`（Lite 同步）。
+    - #1576 #1555（#1487 #1538 也是）天气 `SocketTimeoutException`（TLS 握手读超时，同网段 PC 1 秒就通）→ 超时也退到 http 再取一次；失败重试 10 分钟 → 3 分钟（Lite 同步）。原因没找到。
+    - #1497 当贝 DBF3：1.98 退出列表后，固件强停 Aerial 又马上按 HOME 拉起，新进程 0.5 秒后把守护加回，熄屏时照样崩 → 广播时把时间和 boot id 写盘（commit），两分钟内同一次开机 `ensureEnabled` 不加回，SCREEN_ON 清掉后加回，两分钟后没关机自己加回（`GuardSetup.shuttingDown`）。
+    - #1558 创维 8H93（海思 V600，安卓 5.0）`MediaMetadataRetriever` 读不出元数据，上传的视频全被拒 → 读不出时用 `MediaExtractor` 看有没有视频轨（安卓 4.1 起，Lite 共用这份文件），拒收时打日志。
+    - #1562 索尼 + eARC 回音壁：音量索引一直 7 → 连续两步不在两端、没静音、数值没变就当成外接音响，音量行写「由音响控制」（`cc_volume_external` 五种语言），诊断 `volume_external=`，单测 `ExternalVolumeTest`。
+    - #1567 乐视 MAX5-65：系统显示页的亮度测试会崩 → 图像设置在 `ACTION_DISPLAY_SETTINGS` 前先开乐视的 `SettingActivity`。
+    - #1391 #1569 极米 pig_chivalrous 开机黑屏（RS Pro 2 上 1.98 守护在跑、bootanim 停了仍不出手，logcat 读不了）→ 兜底被挡时写一行 DiagLog（第一个非对话框事件的包名 / 类名、窗口、Aerial 是否 resume），启动失败也写原因。没改判断。
+    - #1563 天猫魔盒 M13（安卓 5.1，没有 FEATURE_LEANBACK）个性化按上键焦点跑到屏外 → `Group` 把请求撑到说明行，比视口还高，Compose 默认规则（非 TV pivot）不滚；`latestBringIntoView` 把请求高度限制在一个视口内。安卓 5.0 模拟器复现并验证。
+    - PR #1540（乐视 X3-50，jemyzhang）：信号源前写 `DesktopManager` 标签、乐视网络页、乐视亮度行打开乐视设置（`Brightness.isLetv`）、`docs/devices/letv-x3-50.md`，作者保留。**没合**：乐视上整行隐藏亮度（界面取舍，#1567 也要，转户主）。
+    - PR #1556（Lite，TCL MS901 安卓 4.2.1，zknb-666）：设置、网络页（`TclMs901Pages`）和亮度（`TclMs901Picture`），作者保留。**没合**信号源：`PORTS` 写死这块板的 8 个口；`backToStorage` 每次回首页都切回 STORAGE，会影响别的 TCL MStar 4.x，请作者改。
+    - 文档：ARCHITECTURE（关机标记、外接音量、乐视 / MStar 信号源兜底），`dangbei-box.md`（DBF3 1.98 复测时间线），`skyworth-coocaa.md`（8H57_H5 `cls` 要连 `pkg` 一起改、`filterHomeAlways` 实测）。
+  - 验证：standard、guard 单测各 272 个通过，Lite lint 0 错误，三个包签名 e089…。**TCL MT5879** `tcast-push.py` 推 guard 测试包 **1.99-test（versionCode 145，没提交）**（uiautomator 确认焦点在「同意」后按确定），compile speed：`selftest.sh` 守护、主页键（从 TCL 浏览器 0.4 秒）、`INPUTS=1` 7 个信号源通过；控制中心音量 9→11→9（已还原，没误判成外接音响，`volume_external=false`）；个性化上下移动正常（没按确定，设置没动）；按返回进屏保、按上键回来，两段录屏逐帧亮度最低 83 / 91，没有黑帧；两个 walleve 服务、屏保 AerialDream 保留。**安卓 5.0 模拟器**复现并验证 #1563，音量步进正常。小米 MFTR0 巡检时在待机，发版前补测（见上一条）。
+  - **没有真机验证**：#1568 #1580 #1576 #1497 #1558 #1562 #1567 #1391 的诊断行、PR #1540（作者 X3-50 实测）、PR #1556（作者 MS901 实测）。
+  - 要户主定：乐视整行隐藏亮度（PR #1540、#1567）；#1518 创维 8H57_H5 / #1546 当贝 B3 按型号内置 `filterHomeAlways`；#1490 持久关掉守护的开关（功能）。
+  - 查到没修：#1581 小米 4（ANSM0，70 寸 xmen，22.10）HDMI 1 / 3 和 #592 #584 #514 三台正好相反，请报告人用本机配置验证三个口、贴板子信息再区分。#1579 小米 MTSU0 主页键闪：报告人用 `input keyevent` 测，要真遥控器下的日志。#1394 #1572 华为：设置、智能检测等要华为签名权限，第三方打不开；`tvsetting://` 那条的结果还没拿到。#1521 TCL ak30a5 上次让抓 `AerialGuard`，守护记音量键在 `AerialDiag` 标签下，重新要了。#1569 宽 / 窄记录分裂按主页键卡：请 @sln162 在 H3S 实测后提 PR。
+  - 关闭：确认 #1537 #1477 #1544，重复 #1573，已知限制 #1571（小米安卓 ≤11 按住音量不连发），车载屏 #1420，华为并入 #1394 的 #1572，十天无回音 #1251 #1097 #115 #561。enhancement：#1555 #1564 #1557。
+  - 复查（`raw-2026-11-16b`）补回 #1487 #1570，新 issue #1582（小米电视 2 nPlayer 黑屏）要了信息；最后仍是用户发言的只剩定了不回的（加 #1542 用户继续观察、#1357 sln162 的说明）。
+
+## 现状（2026-11-15）
+
+- **1.98（versionCode 144），2026-11-15 发布**（[v1.98](https://github.com/pengchujin/aerial-tv/releases/tag/v1.98)）：下面这轮巡检的全部修复（#1537 #1525 #1487 #1497 #1394 #1477 #1483 #1544、天气诊断 #1538 #1548、PR #1551 #1541），加上 PR #1449 作者追加的问题：极米 H3S 开机校正的 `TVUIDialog` 在锁定期间产生一条事件，9ebb603 的 `sawEvent` 让开机黑屏兜底永远不出手 → 改成不算类名含 `Dialog` 的事件（`sawScreenEvent`，9064493；没有整项删掉，见 `xgimi-h3.md`）。versionCode 跳过 143（两台装过 143 测试包）。Lite 没改，Release 附的仍是 1.30（32），用的是 v1.97 那份原文件（md5 99dce703…）。standard、guard 单测各 268 个通过，三个包签名 e089…。**小米 MFTR0** `install-multiple` standard + 31.dm（speed-profile / install-dm）：`selftest.sh` 守护、主页键（从设置 0.4 秒）、`INPUTS=1` 8 个信号源通过。**TCL MT5879** `APK_FILE=… KEEP_ADB=1 tools/install.sh guard`（`adb install` 被拒 `INSTALL_FAILED_VERIFICATION_FAILURE` 后走多屏互动，截图 + uiautomator 确认焦点在「同意」后按确定），compile speed：守护、7 个信号源通过，两个 walleve 服务、屏保 AerialDream 保留；主页键从 TCL 浏览器四次 0.4 / 0.3 / 0.3 / 0.4 秒，这次 install.sh 之后没有出现前两轮的 5 秒。官网已部署：`/download/version.txt` = v1.98，notes.json 有 1.98，三个 APK md5 与 Release 一致，`/diag/aerial-710.apk` 还在。13 个 issue / PR 贴了发布链接（`local/triage/release-1.98-posts.py`）。#1449 的改动没有真机验证（两台都走不到锁定期间兜底）。**下次发版 versionCode ≥ 145，Lite ≥ 33。**
+- **2026-11-15 巡检（没发版，改在 main 上）**，记录 `local/triage/2026-11-15-full.md`（原始 `raw-2026-11-15/`），回复 `replies-2026-11-15.py`，发出 `posted-2026-11-15.txt`。318 issue / 68 PR，用户最后发言 53（20 个上轮定了不回、没有新内容）。在主目录分支 `claude/triage-2026-11-15` 上做，合回 main。
+  - 改了（每个单独提交）：
+    - #1537 小米 MFTP0（安卓 9）：1.89（#1399）起待机唤醒后 ADB 不再恢复、keep_adb 被关。原因：待机强停 Aerial，唤醒后被拉起的守护没收到 SCREEN_ON，`screenOnAt` 是「从没亮过」，固件唤醒时关 ADB 被当成用户关的 → 「亮屏多久」同时从这次绑定算（`connectedAt`），取较短的。
+    - #1525 当贝 DBX5 Ultra：1.97 打开的 `ChildRecentActivity` 是观看记录 → 从 `TASK_CENTRE_ACTIVITIES` 去掉。
+    - #1487 小米 5 Pro（ANSP0）：devices.json 内置 HW7/6/5 → HDMI 1/2/3、23/24/25（报告人用同一份配置在 1.97 上验过三个口）。
+    - #1497 当贝 DBF3 Air：守护注册 `com.dangbei.action.STR_SHUTDOWN`（强停前约 0.5 秒），收到就 `disableSelf()`，亮屏或下次启动加回（`GuardSetup.stepOutForShutdown`）。没用 `com.dangs.workmode`（「关屏」不关机时也可能发）。
+    - #1394 华为智慧屏 V65：设置 `tvsetting://com.huawei.homevision.settings/main`、网络 `.../network`。
+    - #1477 当贝 DBF6（Huanglong）：有 `com.dangbei.action.INPUTSOURCE_CHOOSER_ACTIVITY` 时列出 HDMI 1 / 2，走 `com.huanglong.tvui/.MainActivity` 带 `SourceName` 9 / 10；选择器兜底开当贝的选择页。
+    - #1483 极米 DOHKO（安卓 14）：passthrough 没人接时直接开 `com.xgimi.xhplayer/.InputActivity` 带 `sw=HDMI<n>`（只在安卓 14、`com.xgimi.tvinput` 的 HDMI 输入上）；打开控制中心时重读一次信号源（拔线后的「已连接」）。
+    - #1544 当贝 DBF6：控制中心升级后安装器停在「已安装」页 → 升级后重新绑定的守护在 2 分钟内、亮屏、有「安装器是 Aerial 开的」记录时，1.5 秒后拉回一次。
+    - #1538 #1548 天气 1.97 拉取失败：诊断的 Weather 一行写出失败原因（HTTP 状态或异常类型，不含 URL / 坐标）。我们两台同时都能读到，原因没找到（猜测是报告人网络到 open-meteo 不通，或运营商出口共用 IP 被限流），等报告人。
+    - PR #1551（ccaata，TCL Google TV 亮度按 `TclPq` 检测）、PR #1541（felixlark，用量统计里活动切换的 1 秒间隙不算退出，带 3 个单测）cherry-pick 合入，作者保留。
+    - 文档：README 两份（TCL 65T7L、海信 HZ55A65），`xgimi-h3.md`（H3S 四种首选记录状态，一条都不写最稳）、`dangbei-box.md`（B3 按主页键强停全部后台、拦静态广播；DBF6 信号源 / 升级 / 唤醒倒置；DBF3 关机崩溃）、`xgimi-z9x-4k.md`（DOHKO `sw`）、ARCHITECTURE。
+  - 验证：standard、guard 单测各 268 个通过，Lite 没改（这轮的改动 Lite 都没有对应代码：Lite 没有守护 / keep_adb，天气诊断行 Lite 本来就没有，其余机型都是安卓 5 以上），三个包签名 e089…。**小米 MFTR0** `install-multiple` standard 测试包 **1.98-test（versionCode 143，没提交）** + 31.dm（speed-profile / install-dm）：`selftest.sh` 守护、主页键（从设置 0.4 秒）、`INPUTS=1` 8 个信号源通过；控制中心、信号源页打开正常、没有崩溃；按返回进屏保、按上键回来，录屏逐帧亮度最低 114，没有黑帧。**TCL MT5879** `tcast-push.py` 推 guard 测试包 143（截图 + uiautomator 确认焦点在「同意」），compile speed：`selftest.sh` 守护、主页键（从 TCL 浏览器 0.4 秒）、7 个信号源通过，两个 walleve 服务、屏保 AerialDream 保留；亮度一行和以前一样（有 `com.tcl.settings`）；系统屏保约 9 秒只有时钟、然后影片，按键回首页（和上轮一样）。没改户主的任何设置。
+  - **没有真机验证**：#1537（我们的 MFTR0 待机时进程不被杀，走不到这条路；没敢在户主的电视上关 ADB 试）、#1497、#1394、#1477、#1483、#1544、PR #1541（两台只回归了不受影响）、PR #1551（作者 G10_4K_GB 实测）。
+  - 查到没修 / 要户主定：#1546 当贝 B3 请求内置 `filterHomeAlways`（固件拦 CONFIG 广播，用户自己写不进去）——这个开关的音量代价一直是户主决定只按用户配置开，**要户主决定**要不要按型号内置。PR #1540（乐视 X3-50）没合：`dispatchKeyEvent` 里对所有电视拦 `KEYCODE_TV_INPUT`、亮度按 `Build.MANUFACTURER` 藏行，请作者改。#1517 红米 ASTR0 影片没下完时取帧读网络、媒体服务被占、界面卡，下一轮在自己电视上造「边下边播」再改。#1505 海信 VIDAA 安卓 6 的 F12：要过滤才接得到，过滤会让 VIDAA 音量失灵（#7），固件限制关闭。#1536 小米 MFFU0 冷开机 keep_adb：解锁时 `ensureEnabled` 已经调 `ensureAdb`，和报告人的日志对不上，要了数据。#1530 索尼开机显示静音但有声音：要 `dumpsys audio`。#1542 当贝 DBF6 唤醒后画面倒置（`/sys/class/projector/mirror` 被写 0）：要 SELinux 标签和补发进程。
+  - 关闭 23 个：确认 / README / 报告 #1547 #1545 #1539 #1463 #1474，重复 #1549，固件限制 #1505，十天无回音 #1199 #1213 #1217 #1241 #1247 #1254 #1256 #1257 #1272 #1277 #1280，PR #1551 #1541（已合）。enhancement：#1543（农历干支年）。
+  - （已随 1.98 发布。）
+
 ## 现状（2026-11-14）
 
 - **1.97（versionCode 142）+ Aerial Lite 1.30（32），2026-11-14 发布**（[v1.97](https://github.com/pengchujin/aerial-tv/releases/tag/v1.97)）：下面这轮巡检的全部修复（#1521 #1508 #1463 #1525 #1528 #1527 #1517 #1506、PR #1523 #1534，Lite 带 #1508 #1528）。versionCode 跳过 138–141（两台装过 140、141 测试包）。standard、guard 单测各 265 个通过，Lite lint，三个包签名 e089…。小米 MFTR0 `install-multiple` standard + .dm（.dm 要和 APK 同名，否则 `Unmatched .dm files`；speed-profile / install-dm）：`selftest.sh` 守护、主页键（从设置 0.4 秒）、`INPUTS=1` 8 个信号源通过。TCL MT5879 `APK_FILE=… KEEP_ADB=1 tools/install.sh guard`（`adb install` 被拒 `INSTALL_FAILED_VERIFICATION_FAILURE` 后走多屏互动，截图 + uiautomator 确认焦点在「同意」后按确定），compile speed：守护、7 个信号源通过，两个 walleve 服务、屏保 AerialDream 保留。**主页键又是 install.sh 之后慢**：从 TCL 浏览器 5.2 / 5.1 / 4.6 秒；按上次留下的办法抓了对比：慢的时候 `dumpsys activity processes` 里 Aerial `curProcState=2`、`oom cur=0`，`dumpsys accessibility` 绑定了小T助手和 Aerial；在无障碍列表里把守护关开一次后 0.5 / 0.4 / 0.3 秒，这时进程状态和 `dumpsys accessibility` 的输出**逐字一样**。所以不是进程优先级，也不是无障碍绑定状态，原因仍没找到（同一次推送前的 141 测试包用 `tcast-push.py` 装，是 0.4 秒）。下次可以对比守护自己的状态行（`dumpsys activity top | grep 'Home Guard'`）和 `dumpsys input` 的过滤器。官网已部署：version.txt = v1.97，notes.json 有 1.97，三个 APK md5 与 Release 一致，`/diag/aerial-710.apk` 还在。12 个 issue / PR 贴了发布链接（`local/triage/release-1.97-posts.py`）。**下次发版 versionCode ≥ 143，Lite ≥ 33。**
@@ -539,7 +688,7 @@ adb -s $XIAOMI_TV:5555 shell "dumpsys package dexopt | grep -A2 'com.ts.launcher
 
 ## 发版
 
-1. `app/build.gradle.kts` 里 `versionCode` 加 1，并更新 `versionName`。
+1. `app/build.gradle.kts` 里 `versionCode` 加 1，并更新 `versionName`。2.1 之后版本名每次加 0.01：2.11、2.12、2.13……（户主 2026-11-19 定）。不要在 2.11 之后写 2.2：`Updates.newer` 按数字逐段比，2.2 比 2.11 旧，电视不会提示升级；到 2.99 之后怎么排先问户主。
 2. `./gradlew assembleStandardRelease assembleGuardRelease`（必须有 `local/signing.*`，否则签名不一致，用户无法覆盖安装）。
 3. 发布时 APK 要改名为 `aerial-standard.apk` 和 `aerial-guard.apk`，`tools/install.sh` 和官网都按这两个名字从 `releases/latest/download/` 下载：
    ```bash

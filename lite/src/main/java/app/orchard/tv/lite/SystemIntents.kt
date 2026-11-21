@@ -16,6 +16,11 @@ import android.provider.Settings
 object SystemIntents {
     fun settings(context: Context): Intent = first(
         context,
+        // TCL MS901 / Android 4.2.1 (MStar edison): this firmware's settings app is
+        // com.tcl.mstar.settings; none of the pages below exist on it. Only where its two
+        // activities are present (TclMs901Pages) do they go first; elsewhere this spreads an
+        // empty array and the original list, in its original order, decides as before.
+        *TclMs901Pages.settings(context),
         // Letv (S40 Air and other eUI sets): its own settings, the only one some stripped Letv
         // firmwares ship — com.android.settings is absent there, so the standard action resolved to
         // nothing and the panel's gear did nothing (S40 Air, Android 4.3, 2026-11-02).
@@ -27,6 +32,9 @@ object SystemIntents {
         Intent(Settings.ACTION_SETTINGS).setComponent(ComponentName("com.android.tv.settings", "com.hisense.systemsettings.MainActivity")),
         // LeTV Max4-55 (Android 6): its own settings before AOSP's empty page, as in the full app (#1528).
         Intent(Intent.ACTION_MAIN).setComponent(ComponentName("com.stv.globalsetting", "com.stv.globalsetting.activity.SettingActivity")),
+        // Baofeng TV's own settings, which answer no settings action (AML_T962, Android 9, the full
+        // app's issue #1339); not verified on Baofeng's Android 4.x.
+        Intent(Intent.ACTION_MAIN).setComponent(ComponentName("com.baofengtv.settings", "com.baofengtv.settings.MainActivity")),
         Intent(Settings.ACTION_SETTINGS),
         Intent(Intent.ACTION_MAIN).setComponent(ComponentName("com.konka.systemsetting", "com.konka.systemsetting.MainActivity")),
         Intent(Intent.ACTION_MAIN).setComponent(ComponentName("com.tcl.settings", "com.tcl.settings.ui.MainActivity")),
@@ -38,6 +46,10 @@ object SystemIntents {
 
     fun network(context: Context, ethernet: Boolean): Intent = first(
         context,
+        // TCL MS901 / Android 4.2.1 (MStar edison): its network page is a separate activity in
+        // com.tcl.mstar.settings, and no standard Wi-Fi/SETTINGS action resolves on this set.
+        // Empty on every other TV, which keeps the original candidates below untouched.
+        *TclMs901Pages.network(context),
         // Letv: the network page is a tab inside its own settings, and com.android.settings is not
         // installed at all, so Settings.ACTION_WIFI_SETTINGS went nowhere (S40 Air, Android 4.3).
         // openNetworkPanel shows that page itself where the TV has it.
@@ -48,6 +60,8 @@ object SystemIntents {
         Intent(Intent.ACTION_MAIN).setComponent(ComponentName("com.android.tv.settings", "com.android.tv.settings.connectivity.NetworkActivity")),
         Intent(Settings.ACTION_WIFI_SETTINGS),
         Intent("com.pptv.intent.action.WIFI_ACTIVITY").setComponent(ComponentName("com.pptv.setting", "com.pptv.setting.wifi.WifiWorkActivity")),
+        // Baofeng: the network page is inside its settings (full app, #1339).
+        Intent(Intent.ACTION_MAIN).setComponent(ComponentName("com.baofengtv.settings", "com.baofengtv.settings.MainActivity")),
         Intent(Settings.ACTION_SETTINGS),
         Intent(Intent.ACTION_MAIN).setComponent(ComponentName("com.tcl.settings", "com.tcl.settings.ui.MainActivity")),
         Intent("android.intent.action.WIFISETTING").setPackage("com.tcl.settings"),
@@ -75,6 +89,11 @@ object SystemIntents {
      */
     fun xiaomiInputs(context: Context): List<Pair<String, Intent>> {
         if (Build.VERSION.SDK_INT >= 21) return emptyList()
+        // TCL MStar 4.x with the TV manager: list the ports the firmware says this board has,
+        // not the fixed Xiaomi HDMI 1-3 set. Only where getSourceList() can be read; the
+        // Intents carry an enum name, which HomeActivity.open switches through the firmware
+        // instead of starting as an Activity. Every other 4.x TV falls through unchanged.
+        TclMs901Sources.inputs(context).takeIf { it.isNotEmpty() }?.let { return it }
         val player = ComponentName("com.xiaomi.mitv.tvplayer", "com.xiaomi.mitv.tvplayer.ExternalSourceActivity")
         if (runCatching { context.packageManager.getActivityInfo(player, 0) }.isFailure) return emptyList()
         val traits = runCatching {
@@ -153,6 +172,12 @@ object SystemIntents {
         if (runCatching { pm.queryBroadcastReceivers(baofeng, 0) }.getOrNull().orEmpty().any { it.activityInfo.exported } &&
             runCatching { context.sendBroadcast(baofeng) }.isSuccess
         ) return true
+        // Baofeng boards without BFTVSourceSwitch: FUI's source bar, opened by component (AML_T962,
+        // Android 9, the full app's issue #1339); not verified on Baofeng's Android 4.x.
+        val bftvRow = ComponentName("com.bftv.fui.biu", "com.bftv.fui.biu.views.activity.FRowActivity")
+        if (runCatching { pm.getActivityInfo(bftvRow, 0) }.getOrNull()?.exported == true &&
+            runCatching { context.startActivity(Intent(Intent.ACTION_MAIN).setComponent(bftvRow).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }.isSuccess
+        ) return true
         // Older Coocaa (Skyworth 8S61, MStar, Android 4.4.2) has none of the above: on the remote's
         // input key the system starts its launcher's HomeService with the key, which shows the
         // input page ("HomeService onStartCommand ##, keyCode=178"; issue #1272, the reporter's
@@ -164,6 +189,12 @@ object SystemIntents {
                 .putExtra(Intent.EXTRA_KEY_EVENT, KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_TV_INPUT))
             if (runCatching { context.startService(key) }.getOrNull() != null) return true
         }
+        // MStar tvsetting's input list, the panel the remote's input key shows (Philips TV838,
+        // Android 6, the full app's issue #1580); not verified on MStar's Android 4.x.
+        val mstarList = ComponentName("com.mstar.tvsetting", "com.mstar.tvsetting.hotkey.InputSourceListViewActivity")
+        if (runCatching { pm.getActivityInfo(mstarList, 0) }.getOrNull()?.exported == true &&
+            runCatching { context.startActivity(Intent(Intent.ACTION_MAIN).setComponent(mstarList).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }.isSuccess
+        ) return true
         // MStar's own TV player keeps a source panel behind a custom action (Sharp
         // LCD_xxSFFOC470A, MStar mooney, Android 6, the full app's issue #1342, opened with adb);
         // not verified on MStar's Android 4.x. Last, so no TV that opened one above changes.

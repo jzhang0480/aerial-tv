@@ -20,6 +20,7 @@ import androidx.core.content.getSystemService
 import android.util.Log
 import app.orchard.tv.MainActivity
 import app.orchard.tv.dream.AerialDream
+import app.orchard.tv.settings.AerialSettings
 import app.orchard.tv.system.DiagLog
 import app.orchard.tv.system.SystemScreensaver
 
@@ -63,6 +64,12 @@ object GuardSetup {
 
     /** Test hook: probe another port to watch the toggle without closing a working ADB link. */
     @Volatile var adbProbePort = 5555
+
+    /** When a Dangbei shutdown was announced (elapsed) and in which boot; see [shuttingDown]. */
+    private const val KEY_SHUTDOWN_AT = "shutdown_announced_at"
+    private const val KEY_SHUTDOWN_BOOT_ID = "shutdown_announced_boot_id"
+    private const val SHUTDOWN_HOLD_MS = 2 * 60_000L
+    @Volatile private var shutdownRecheck = false
 
     private const val KEY_OWN_SCREENSAVER = "own_screensaver"
     private const val KEY_HOME_IN_FRONT = "home_in_front"
@@ -110,7 +117,7 @@ object GuardSetup {
 
     // Synchronized: BootReceiver calls ensureEnabled off the main thread.
     @Synchronized
-    private fun watchScreenOn(context: Context) {
+    private fun watchScreenOn(context: Context, litNowCounts: Boolean = true) {
         if (screenOnWatch != null) return
         val app = context.applicationContext
         val receiver = object : BroadcastReceiver() {
@@ -119,13 +126,14 @@ object GuardSetup {
                 runCatching { app.unregisterReceiver(this) }
                 screenOnWatch = null
                 Log.i(TAG, "screen on; putting Home Guard back after standby")
+                clearShutdown(app)
                 ensureEnabled(app)
             }
         }
         screenOnWatch = receiver
         app.registerReceiver(receiver, IntentFilter(Intent.ACTION_SCREEN_ON))
         // Lit in between: the broadcast is already gone.
-        if (context.getSystemService<PowerManager>()?.isInteractive == true) receiver.onReceive(app, Intent(Intent.ACTION_SCREEN_ON))
+        if (litNowCounts && context.getSystemService<PowerManager>()?.isInteractive == true) receiver.onReceive(app, Intent(Intent.ACTION_SCREEN_ON))
     }
 
     /** Called by the guard at SCREEN_OFF: takes it out of the list and waits for the screen. */
@@ -142,6 +150,42 @@ object GuardSetup {
                 .split(':').filter { it.isNotBlank() && ComponentName.unflattenFromString(it)?.flattenToString() != me }
             Settings.Secure.putString(resolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES, others.joinToString(":"))
         }.onFailure { Log.w(TAG, "could not take Home Guard out", it) }
+    }
+
+    /**
+     * Called by the guard when the firmware announces a shutdown with the screen still on (Dangbei,
+     * issue #1497): out of the list now, back at the next SCREEN_ON or the next start.
+     */
+    fun stepOutForShutdown(service: android.accessibilityservice.AccessibilityService) {
+        Log.i(TAG, "shutdown announced; taking Home Guard out")
+        // On disk at once: the firmware force-stops Aerial 0.4 s later and starts it straight
+        // again as the Home, and that new process put the guard back 0.5 s after, a second before
+        // the screen went off; the crash came with that change (DBF3 Air on 1.98, issue #1497).
+        if (isUserUnlocked(service)) service.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .putLong(KEY_SHUTDOWN_AT, SystemClock.elapsedRealtime())
+            .putString(KEY_SHUTDOWN_BOOT_ID, app.orchard.tv.system.BootOpen.BOOT_ID).commit()
+        watchScreenOn(service, litNowCounts = false)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) runCatching { service.disableSelf() }
+    }
+
+    /**
+     * A shutdown was announced in this boot in the last two minutes and the screen has not lit
+     * since: the guard stays out (issue #1497). Dangbei's "shutdown" is a suspend, so the boot id
+     * stays; SCREEN_ON after it clears the note, and a real restart has another boot id.
+     */
+    private fun shuttingDown(context: Context): Boolean {
+        if (!isUserUnlocked(context)) return false
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val at = prefs.getLong(KEY_SHUTDOWN_AT, 0L)
+        if (at == 0L) return false
+        val sameBoot = prefs.getString(KEY_SHUTDOWN_BOOT_ID, null) == app.orchard.tv.system.BootOpen.BOOT_ID
+        return sameBoot && SystemClock.elapsedRealtime() - at in 0 until SHUTDOWN_HOLD_MS
+    }
+
+    private fun clearShutdown(context: Context) {
+        if (!isUserUnlocked(context)) return
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .remove(KEY_SHUTDOWN_AT).remove(KEY_SHUTDOWN_BOOT_ID).apply()
     }
 
     /**
@@ -386,6 +430,8 @@ object GuardSetup {
             runCatching {
                 Settings.Global.putInt(resolver, Settings.Global.ADB_ENABLED, 1)
                 Log.i(TAG, "ADB debugging had been switched off; turned it back on")
+                // In Aerial's own log too: logcat on Xiaomi rolls over in minutes.
+                DiagLog.i("guard: ADB had been switched off; turned it back on (keep_adb)")
             }.onFailure { Log.w(TAG, "could not turn ADB back on", it) }
             return
         }
@@ -646,16 +692,30 @@ object GuardSetup {
     fun screensaverModeChanged(context: Context) {
         if (!isUserUnlocked(context)) return
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        if (!prefs.getBoolean(KEY_OWN_SCREENSAVER, false)) return
-        if (!systemChosen(context)) { keepScreensaver(context); return }
+        if (!systemChosen(context)) {
+            keepScreensaver(context)
+            // "Never" switches the system's screensaver off only while it is Aerial's; coming back
+            // from "System" with "Never" still chosen does that again.
+            if (AerialSettings.screensaverMinutes == AerialSettings.NEVER) setSystemScreensaverOff(context, true)
+            return
+        }
         val resolver = context.contentResolver
         val mine = ComponentName(context, AerialDream::class.java).flattenToString()
-        val firmware = SystemScreensaver.firmwareDream(context) ?: return
-        if (Settings.Secure.getString(resolver, "screensaver_components").orEmpty() != mine) return
-        runCatching {
-            Settings.Secure.putString(resolver, "screensaver_components", firmware)
-            Log.i(TAG, "screensaver set to the system's; the dream is $firmware again")
-        }.onFailure { Log.w(TAG, "could not give the system screensaver back", it) }
+        val firmware = SystemScreensaver.firmwareDream(context)
+        // Aerial's dream in the system's place, set by the install's adb or by hand, though this
+        // install was never told it owns it (the APK put on alone): "System" left it there, so
+        // the TV kept a screensaver that was not its own (MiTV-MFTR0, issue #1609). Given back, and
+        // remembered as taken so that choosing Aerial's again puts it back.
+        if (firmware != null && Settings.Secure.getString(resolver, "screensaver_components").orEmpty() == mine) {
+            runCatching {
+                Settings.Secure.putString(resolver, "screensaver_components", firmware)
+                prefs.edit().putBoolean(KEY_OWN_SCREENSAVER, true).apply()
+                Log.i(TAG, "screensaver set to the system's; the dream is $firmware again")
+            }.onFailure { Log.w(TAG, "could not give the system screensaver back", it) }
+        }
+        // "Never" had switched the system's screensaver off; "System" wants it on, and the delay
+        // page shows the firmware's then (MiTV-MFTR0, issue #1609: it stayed off and never came).
+        setSystemScreensaverOff(context, false)
     }
 
     /**
@@ -777,6 +837,17 @@ object GuardSetup {
         RevivalSync.ensure(context)
         ensureListenerBeforeNougat(context)
         if (standingOut(context)) { watchScreenOn(context); return false }
+        if (shuttingDown(context)) {
+            Log.i(TAG, "shutdown announced a moment ago; Home Guard stays out until the screen lights")
+            watchScreenOn(context, litNowCounts = false)
+            // If no shutdown follows, back when the hold is over rather than at the next start.
+            if (!shutdownRecheck) {
+                shutdownRecheck = true
+                val app = context.applicationContext
+                Handler(Looper.getMainLooper()).postDelayed({ shutdownRecheck = false; ensureEnabled(app) }, SHUTDOWN_HOLD_MS + 1_000L)
+            }
+            return false
+        }
         val me = ComponentName(context, HomeGuardService::class.java).flattenToString()
         val resolver = context.contentResolver
         val current = Settings.Secure.getString(resolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES).orEmpty()

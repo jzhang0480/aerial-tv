@@ -118,60 +118,65 @@ curl -fsSL https://aerial.qust.me/install.sh | KEEP_ADB=1 TV=<IP> bash
    adb shell appops set com.ts.launcher GET_USAGE_STATS allow
    adb shell appops set com.ts.launcher android:get_usage_stats allow
    adb shell appops set com.ts.launcher ACCESS_RESTRICTED_SETTINGS allow
-   adb shell cmd notification allow_listener com.ts.launcher/app.orchard.tv.guard.RevivalListener
+   adb shell cmd notification allow_listener com.ts.launcher/com.ts.launcher.guard.RevivalListener
    adb shell appops set com.ts.launcher APP_AUTO_START allow
    adb shell appops set com.ts.launcher APP_ASSOC_START allow
    adb shell appops set com.ts.launcher AUTO_START allow
    adb shell appops set com.ts.launcher ASSOC_START allow
    ```
-   Android 6、7 没有 `cmd`，部分 Android 8 固件也没有 `cmd notification`（极米 Z6X 第四代报 `No shell command implementation.`）：先运行 `adb shell settings get secure enabled_notification_listeners`。输出是 `null` 或空的，运行 `adb shell settings put secure enabled_notification_listeners com.ts.launcher/app.orchard.tv.guard.RevivalListener`；否则把 `:com.ts.launcher/app.orchard.tv.guard.RevivalListener` 加在原值后面再 `settings put`，原有的不要删。乐视等会在后台强停 App 的固件靠它把 Aerial 拉回来（#1127）。
+   Android 6、7 没有 `cmd`，部分 Android 8 固件也没有 `cmd notification`（极米 Z6X 第四代报 `No shell command implementation.`）：先运行 `adb shell settings get secure enabled_notification_listeners`。输出是 `null` 或空的，运行 `adb shell settings put secure enabled_notification_listeners com.ts.launcher/com.ts.launcher.guard.RevivalListener`；否则把 `:com.ts.launcher/com.ts.launcher.guard.RevivalListener` 加在原值后面再 `settings put`，原有的不要删。乐视等会在后台强停 App 的固件靠它把 Aerial 拉回来（#1127）。
    最后四条 `appops` 只有 TCL / 雷鸟认（不同固件认其中两条），别的电视报错是正常的。
    `ACCESS_RESTRICTED_SETTINGS` 只有 Android 13 及以上认：用文件装的 App 在这些系统上开不了无障碍，守护会一直被关掉（#811 #829）。
    TCL / 雷鸟（装有 `com.tcl.ttvs`，或 `adb shell settings get system boot_app_componentname` 已经有值）：先把 `boot_app_mode`、`boot_app_componentname` 两项的原值告诉用户并记下，再运行下面两条，开机第一个画面就是 Aerial，不再先出 TCL 桌面（#1185）。`boot_app_mode` 原来有值就只改第二条：
    ```
    adb shell settings put system boot_app_mode boot_launcher
-   adb shell settings put system boot_app_componentname com.ts.launcher/app.orchard.tv.MainActivity
+   adb shell settings put system boot_app_componentname com.ts.launcher/.MainActivity
    ```
 
    再启动一次 Aerial，等 5 秒后编译（要几十秒，让 Aerial 在电视上更流畅；有的电视要先启动过一次，编译才有效）：
    ```
-   adb shell am start -W -n com.ts.launcher/app.orchard.tv.MainActivity
+   adb shell am start -W -n com.ts.launcher/.MainActivity
    adb shell cmd package compile -m speed -f com.ts.launcher
    ```
    `-f` 在 Android 8 上可能报 `RuntimeException: Can't create handler inside thread that has not called Looper.prepare()`；去掉 `-f` 重跑即可（极米 Z6X 第四代实测，编译结果仍是 `compilation_filter=speed`）。
 
 4. 屏保：运行 `adb shell settings get secure screensaver_enabled`。结果是 `1` 时再运行：
    ```
-   adb shell settings put secure screensaver_components com.ts.launcher/app.orchard.tv.dream.AerialDream
-   adb shell am broadcast -a app.orchard.tv.CONFIG -n com.ts.launcher/app.orchard.tv.guard.ConfigReceiver --ez own_screensaver true
+   adb shell settings put secure screensaver_components com.ts.launcher/com.ts.launcher.dream.AerialDream
+   adb shell am broadcast -a com.ts.launcher.CONFIG -n com.ts.launcher/.guard.ConfigReceiver --ez own_screensaver true
    ```
 
 5. 保持 ADB 常开（用户同意时；小米待机唤醒后会自己关掉 ADB，开了这项以后升级更方便）：
    ```
-   adb shell am broadcast -a app.orchard.tv.CONFIG -n com.ts.launcher/app.orchard.tv.guard.ConfigReceiver --ez keep_adb true
+   adb shell am broadcast -a com.ts.launcher.CONFIG -n com.ts.launcher/.guard.ConfigReceiver --ez keep_adb true
    ```
 
-6. 启动 Aerial：`adb shell am start -W -n com.ts.launcher/app.orchard.tv.MainActivity`，输出里要有 `Status: ok`。
+6. 启动 Aerial：`adb shell am start -W -n com.ts.launcher/.MainActivity`，输出里要有 `Status: ok`。
 
 7. 设为默认桌面（装的是 guard 版时跳过；**小米也跳过**：`adb shell pm path com.mitv.tvhome` 有输出就是小米。有的小米 Android 9 会真的接受这一步，之后短按电源键不再息屏，见 #848，小米交给下一步的桌面守护）：
    ```
    adb shell cmd role add-role-holder --user 0 android.app.role.HOME com.ts.launcher
    ```
-   报错时改用 `adb shell cmd package set-home-activity --user 0 com.ts.launcher/app.orchard.tv.MainActivity`。小米、TCL 等固件会无视这一步，没关系，下一步的桌面守护会接管。
+   报错时改用 `adb shell cmd package set-home-activity --user 0 com.ts.launcher/.MainActivity`。小米、TCL 等固件会无视这一步，没关系，下一步的桌面守护会接管。
 
    **海信 VIDAA**：先运行 `adb shell getprop persist.vt.use_home_pkg`。有输出（比如 `com.jamdeo.tv.vod`）且不是 `com.ts.launcher` 时，记下原值并改成 Aerial：
    ```
    adb shell settings put global aerial_vt_home_pkg <原值>
    adb shell setprop persist.vt.use_home_pkg com.ts.launcher
    ```
-   没有输出就跳过，其他电视没有这个属性。
+   没有输出时，再看 `adb shell pm path com.jamdeo.tv.vod`：有输出（海信，原桌面是聚好看）就记 `-` 表示原来是空的，同样改成 Aerial：
+   ```
+   adb shell settings put global aerial_vt_home_pkg -
+   adb shell setprop persist.vt.use_home_pkg com.ts.launcher
+   ```
+   两个都没有输出就跳过，其他电视没有这个属性。
 
-8. 桌面守护：Aerial 启动时会自己打开它。运行 `adb shell settings get secure enabled_accessibility_services`，结果里应该有 `com.ts.launcher/app.orchard.tv.guard.HomeGuardService`。没有时手动加上，**保留原来的内容**，用冒号连接：
+8. 桌面守护：Aerial 启动时会自己打开它。运行 `adb shell settings get secure enabled_accessibility_services`，结果里应该有 `com.ts.launcher/com.ts.launcher.guard.HomeGuardService`。没有时手动加上，**保留原来的内容**，用冒号连接：
    ```powershell
-   adb shell "settings put secure enabled_accessibility_services '<原来的值>:com.ts.launcher/app.orchard.tv.guard.HomeGuardService'"
+   adb shell "settings put secure enabled_accessibility_services '<原来的值>:com.ts.launcher/com.ts.launcher.guard.HomeGuardService'"
    adb shell settings put secure accessibility_enabled 1
    ```
-   原来的值是 `null` 或空时，只写 `com.ts.launcher/app.orchard.tv.guard.HomeGuardService`。在 PowerShell 里，原来的值中如果有 `$`，要写成 `` `$ ``。
+   原来的值是 `null` 或空时，只写 `com.ts.launcher/com.ts.launcher.guard.HomeGuardService`。在 PowerShell 里，原来的值中如果有 `$`，要写成 `` `$ ``。
 
    有的固件上 `settings` 命令会卡住不返回（腾讯极光盒子 6 / Q5043，等 120 秒后断开）：那就跳过这一步，改用 `adb shell dumpsys accessibility` 看 `Enabled services` 里有没有 Aerial，Aerial 拿到授权后会自己打开守护。
 
@@ -225,7 +230,7 @@ adb shell "sleep 5; dumpsys window" | grep mCurrentFocus
 
 （Windows 把 `grep` 换成 `findstr`。）第 1 条有 `versionName`：已安装。第 3 条包含 `app.orchard.tv.lite`：按主页键进入 Lite，装好了。第 3 条是原桌面或系统的选择框时，请用户再用实体遥控器按一次主页键并选「始终」，然后只重跑第 3 条；还不是，就如实告诉用户这台电视的固件不让换桌面，Lite 只能从应用列表打开。
 
-**还原**：请用户在电视上 设置 → 应用 → Aerial Lite → **清除默认设置**；要卸载时 `adb uninstall com.ts.launcher.lite`。
+**还原**：请用户在电视上 设置 → 应用 → Aerial Lite → **清除默认设置**；要卸载时 `adb uninstall app.orchard.tv.lite`。
 
 ## 验收（必须做）
 
@@ -235,14 +240,14 @@ adb shell "sleep 5; dumpsys window" | grep mCurrentFocus
 adb shell "dumpsys package com.ts.launcher | grep versionName"
 adb shell "cmd package resolve-activity --brief -a android.intent.action.MAIN -c android.intent.category.HOME -c android.intent.category.DEFAULT"
 adb shell settings get secure enabled_accessibility_services
-adb shell "dumpsys accessibility | grep -c -E 'label=(Aerial|com.ts.launcher|app\.orchard\.tv)'"
+adb shell "dumpsys accessibility | grep -c -E 'label=(Aerial|com.ts.launcher)'"
 adb shell input keyevent KEYCODE_HOME
 adb shell "sleep 8; dumpsys window | grep mCurrentFocus"
 ```
 
 - 第 1 条有 `versionName`：已安装。
 - 第 2 条是系统给出的默认桌面。小米仍然是 PatchWall（`com.mitv.tvhome`）、TCL 仍然是自己的桌面时正常，守护接管；是 `com.ts.launcher` 更好。
-- 第 3 条有 `com.ts.launcher/app.orchard.tv.guard.HomeGuardService`：守护已打开（原生 Android TV 已是默认桌面时可能没有，看第 6 条即可）。
+- 第 3 条有 `com.ts.launcher/com.ts.launcher.guard.HomeGuardService`：守护已打开（原生 Android TV 已是默认桌面时可能没有，看第 6 条即可）。
 - 第 4 条大于 0：守护正在运行。
 - **第 6 条包含 `com.ts.launcher`：按主页键进入 Aerial，安装成功。** 这一条不满足，就不能告诉用户装好了。有的固件按主页键后自家桌面要停几秒，守护才把 Aerial 拉回来（OPPO ColorOS TV 约 5 秒，#664）：第 6 条是原桌面时，再运行一次 `adb shell "sleep 5; dumpsys window | grep mCurrentFocus"`，两次都不是 `com.ts.launcher` 才算失败。
 - 第 2、3、6 条的原始输出必须贴给用户，不要只说「成功」。第 2 条报错（老系统没有 `cmd`）时，改用 `adb shell pm resolve-activity --brief -a android.intent.action.MAIN -c android.intent.category.HOME -c android.intent.category.DEFAULT`。Android 6 上这两条都可能没有（`cmd: not found`、`pm` 报 `unknown command`，#1127 #1145），那就跳过第 2 条，以第 3、4 条和第 6 条为准；有的老固件上 `input keyevent KEYCODE_HOME` 不经过守护，第 6 条看着失败时请用户用实体遥控器按一次主页键再看。
@@ -268,8 +273,8 @@ curl -fsSL https://aerial.qust.me/install.sh | TV=<IP> bash -s restore
 Windows 逐条运行：
 
 ```
-adb shell am broadcast -a app.orchard.tv.CONFIG -n com.ts.launcher/app.orchard.tv.guard.ConfigReceiver --ez keep_adb false --ez own_screensaver false
-adb shell cmd notification disallow_listener com.ts.launcher/app.orchard.tv.guard.RevivalListener
+adb shell am broadcast -a com.ts.launcher.CONFIG -n com.ts.launcher/.guard.ConfigReceiver --ez keep_adb false --ez own_screensaver false
+adb shell cmd notification disallow_listener com.ts.launcher/com.ts.launcher.guard.RevivalListener
 adb shell pm revoke com.ts.launcher android.permission.WRITE_SECURE_SETTINGS
 adb shell appops set com.ts.launcher SYSTEM_ALERT_WINDOW default
 adb shell appops set com.ts.launcher REQUEST_INSTALL_PACKAGES default
@@ -283,14 +288,14 @@ adb shell cmd role remove-role-holder --user 0 android.app.role.HOME com.ts.laun
 ```
 TCL / 雷鸟改过开机组件的，用记下的原值改回去（原来是空的就写 `''`）：`adb shell settings put system boot_app_componentname <原值>`，`boot_app_mode` 同样。
 
-Android 6、7 没有 `cmd` 时，`disallow_listener` 那条改为：`settings get secure enabled_notification_listeners`，去掉其中 `com.ts.launcher/app.orchard.tv.guard.RevivalListener` 这一项（连同它前面的 `:`）后 `settings put` 回去；只剩它自己时用 `adb shell settings delete secure enabled_notification_listeners`。
+Android 6、7 没有 `cmd` 时，`disallow_listener` 那条改为：`settings get secure enabled_notification_listeners`，去掉其中 `com.ts.launcher/com.ts.launcher.guard.RevivalListener` 这一项（连同它前面的 `:`）后 `settings put` 回去；只剩它自己时用 `adb shell settings delete secure enabled_notification_listeners`。
 
 然后：
 
 - `adb shell settings get secure screensaver_components` 是 `com.ts.launcher/...` 时，用 `adb shell settings get secure screensaver_default_component` 的结果写回去：`adb shell settings put secure screensaver_components <默认值>`。
-- `adb shell settings get secure enabled_accessibility_services`：从结果里去掉 `com.ts.launcher/app.orchard.tv.guard.HomeGuardService`（和它前后多余的冒号），其他服务原样保留写回；只剩它自己时运行 `adb shell settings delete secure enabled_accessibility_services`。
+- `adb shell settings get secure enabled_accessibility_services`：从结果里去掉 `com.ts.launcher/com.ts.launcher.guard.HomeGuardService`（和它前后多余的冒号），其他服务原样保留写回；只剩它自己时运行 `adb shell settings delete secure enabled_accessibility_services`。
 - 小米（`adb shell pm path com.mitv.tvhome` 有输出）：`adb shell cmd package resolve-activity --brief -a android.intent.action.MAIN -c android.intent.category.HOME -c android.intent.category.DEFAULT` 的最后一行是 `com.ts.launcher/...` 时，运行 `adb shell cmd package set-home-activity --user 0 com.mitv.tvhome/.MainActivityUserMode`，再重启电视一次（#848：默认桌面改成 Aerial 后短按电源键不息屏）。
-- 海信 VIDAA：`adb shell settings get global aerial_vt_home_pkg` 有值（不是 `null`）时，运行 `adb shell setprop persist.vt.use_home_pkg <这个值>` 和 `adb shell settings delete global aerial_vt_home_pkg`。没有值、但 `adb shell getprop persist.vt.use_home_pkg` 是 `app.orchard.tv`（1.15 及以前手动改过）并且装有 `com.jamdeo.tv.vod` 时，运行 `adb shell setprop persist.vt.use_home_pkg com.jamdeo.tv.vod`。
+- 海信 VIDAA：`adb shell settings get global aerial_vt_home_pkg` 是 `-` 时，运行 `adb shell "setprop persist.vt.use_home_pkg ''"` 和 `adb shell settings delete global aerial_vt_home_pkg`；是别的值（不是 `null`）时，运行 `adb shell setprop persist.vt.use_home_pkg <这个值>` 和 `adb shell settings delete global aerial_vt_home_pkg`。没有值、但 `adb shell getprop persist.vt.use_home_pkg` 是 `com.ts.launcher`（1.15 及以前手动改过）并且装有 `com.jamdeo.tv.vod` 时，运行 `adb shell setprop persist.vt.use_home_pkg com.jamdeo.tv.vod`。
 - 要卸载时 `adb uninstall com.ts.launcher`。
 - 最后 `adb shell input keyevent KEYCODE_HOME`，电视回到原来的桌面。
 
@@ -305,10 +310,10 @@ Android 6、7 没有 `cmd` 时，`disallow_listener` 那条改为：`settings ge
 - **TCL 推送前让电视停在桌面**：电视在播直播或 HDMI 画面时，多屏互动的确认框会被视频盖住看不见。
 - **海信 VIDAA**：第 7 步改了 `persist.vt.use_home_pkg` 以后，主页键直接进 Aerial；但开机仍会先进聚好看（固件在开机完成前拦截第三方 App），按一次主页键即可。
 - **Vidda 其他系统、OPPO K9、雷鸟鹤 6**：能装，但开机进不了 Aerial（固件只认自家桌面，除非删掉原桌面，这里不做）。可以把 Aerial 当普通 App 用。
-- **验收第 4 条是 0，但第 3 条里有 Aerial**：常见于升级之后，系统还在找旧的安装目录（小米 Android 9，#72）。运行 `adb shell am force-stop com.ts.launcher`，等 3 秒，再 `adb shell am start -W -n com.ts.launcher/app.orchard.tv.MainActivity`，然后重新验收。macOS / Linux 也可以直接运行 `curl -fsSL https://aerial.qust.me/install.sh | TV=<IP> bash -s repair`。
+- **验收第 4 条是 0，但第 3 条里有 Aerial**：常见于升级之后，系统还在找旧的安装目录（小米 Android 9，#72）。运行 `adb shell am force-stop com.ts.launcher`，等 3 秒，再 `adb shell am start -W -n com.ts.launcher/.MainActivity`，然后重新验收。macOS / Linux 也可以直接运行 `curl -fsSL https://aerial.qust.me/install.sh | TV=<IP> bash -s repair`。
 - **用了一段时间后按主页键又回到原桌面**：同上，先试一次上面的强停再打开。
-- **验收第 4 条是 0，第 3 条里也没有 Aerial**：有的固件拦截侧载的无障碍服务。请用户在电视的安全中心或权限管理里允许 Aerial 自启动、无障碍，然后重新运行 `adb shell am start -n com.ts.launcher/app.orchard.tv.MainActivity` 再验收。
-- **忘了家长密码**：`adb shell am broadcast -a app.orchard.tv.CONFIG -n com.ts.launcher/app.orchard.tv.guard.ConfigReceiver --ez clear_pin true`，密码就关掉了。
+- **验收第 4 条是 0，第 3 条里也没有 Aerial**：有的固件拦截侧载的无障碍服务。请用户在电视的安全中心或权限管理里允许 Aerial 自启动、无障碍，然后重新运行 `adb shell am start -n com.ts.launcher/.MainActivity` 再验收。
+- **忘了家长密码**：`adb shell am broadcast -a com.ts.launcher.CONFIG -n com.ts.launcher/.guard.ConfigReceiver --ez clear_pin true`，密码就关掉了。
 - **不支持**：LG webOS、三星 Tizen、华为智慧屏（鸿蒙）、Android 3.x 及更老的电视（Android 4.0–4.4 装 Aerial Lite，见上面）。老乐视、荣耀智慧屏、老康佳（看不到版本号）等打不开 ADB 的机型也暂时没办法。
 
 ## 用户常问

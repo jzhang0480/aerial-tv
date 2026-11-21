@@ -9,7 +9,7 @@ SCRIPT = pathlib.Path(__file__).with_name('install.sh').resolve()
 
 
 class InstallFailureTest(unittest.TestCase):
-    def run_install(self, failure, status, flavor='standard'):
+    def run_install(self, failure, status, flavor='standard', jamdeo=''):
         with tempfile.TemporaryDirectory() as tmp:
             root = pathlib.Path(tmp)
             log = root / 'calls'
@@ -26,13 +26,15 @@ case "$*" in
   install*) echo "$INSTALL_OUTPUT"; exit "$INSTALL_STATUS" ;;
   push*) touch "$MOCK_STATE" ;;
   'shell settings get secure enabled_notification_listeners') echo null ;;
-  'shell dumpsys notification') echo com.ts.launcher/app.orchard.tv.guard.RevivalListener ;;
-  'shell dumpsys accessibility') echo label=com.ts.launcher ;;
+  'shell dumpsys notification') echo com.ts.launcher/com.ts.launcher.guard.RevivalListener ;;
+  'shell dumpsys accessibility') echo label=Aerial ;;
   'shell settings get secure screensaver_enabled') echo 0 ;;
-  'shell settings get secure enabled_accessibility_services') echo com.ts.launcher/app.orchard.tv.guard.HomeGuardService ;;
+  'shell settings get secure enabled_accessibility_services') echo com.ts.launcher/com.ts.launcher.guard.HomeGuardService ;;
+  'shell pm path com.jamdeo.tv.vod') [ -n "$JAMDEO" ] && echo package:/system/app/jamdeo.apk ;;
+  'shell setprop persist.vt.use_home_pkg com.ts.launcher') ;;
   'shell getprop persist.vt.use_home_pkg'|'shell pm path com.mitv.tvhome'|'shell pm path com.dangbeimarket'|'shell pm path com.tcl.ttvs') ;;
   'shell settings get system boot_app_componentname') echo null ;;
-  'shell cmd package resolve-activity'*) echo com.ts.launcher/app.orchard.tv.MainActivity ;;
+  'shell cmd package resolve-activity'*) echo com.ts.launcher/.MainActivity ;;
   'shell am start -W'*) echo 'Status: ok' ;;
   'shell pm grant '*|'shell appops set '*|'shell cmd notification '*|'shell cmd package compile '*|'shell cmd role '*|'shell settings put '*|'shell content call '*|'shell rm -f /sdcard/Download/Aerial.apk') ;;
   *) echo "unexpected adb: $*" >&2; exit 99 ;;
@@ -48,7 +50,7 @@ esac
                        TV='example.invalid', APK_FILE=str(root/'test.apk'),
                        CALL_LOG=str(log), INSTALL_OUTPUT=failure,
                        INSTALL_STATUS=str(status), STAY_CONNECTED='1',
-                       MOCK_STATE=str(root/'pushed'), BUILD='0', KEEP_ADB='0',
+                       MOCK_STATE=str(root/'pushed'), BUILD='0', KEEP_ADB='0', JAMDEO=jamdeo,
                        # No build tools: the test APK is not a real one for aapt2 to read.
                        ANDROID_HOME=str(root))
             result = subprocess.run(['bash', str(SCRIPT), flavor], env=env,
@@ -84,6 +86,18 @@ esac
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn('Aerial is the home screen', result.stdout)
         self.assertIn('shell pm grant', calls)
+
+    def test_vidaa_with_empty_home_property_gets_aerial(self):
+        # Issue #1679: VIDAA MT9603 left persist.vt.use_home_pkg empty and still opened 聚好看 on Home.
+        result, calls = self.run_install('Success', 0, jamdeo='1')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('shell settings put global aerial_vt_home_pkg -', calls)
+        self.assertIn('shell setprop persist.vt.use_home_pkg com.ts.launcher', calls)
+
+    def test_other_tv_with_empty_home_property_is_left_alone(self):
+        result, calls = self.run_install('Success', 0)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertNotIn('setprop', calls)
 
     def test_nonzero_verifier_failure_reaches_existing_tcl_fallback(self):
         result, calls = self.run_install('Failure [INSTALL_FAILED_VERIFICATION_FAILURE]', 1, 'guard')

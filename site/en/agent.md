@@ -118,60 +118,65 @@ Run these in PowerShell, with the adb from step 1. Everything inside `adb shell 
    adb shell appops set com.ts.launcher GET_USAGE_STATS allow
    adb shell appops set com.ts.launcher android:get_usage_stats allow
    adb shell appops set com.ts.launcher ACCESS_RESTRICTED_SETTINGS allow
-   adb shell cmd notification allow_listener com.ts.launcher/app.orchard.tv.guard.RevivalListener
+   adb shell cmd notification allow_listener com.ts.launcher/com.ts.launcher.guard.RevivalListener
    adb shell appops set com.ts.launcher APP_AUTO_START allow
    adb shell appops set com.ts.launcher APP_ASSOC_START allow
    adb shell appops set com.ts.launcher AUTO_START allow
    adb shell appops set com.ts.launcher ASSOC_START allow
    ```
-   Android 6 and 7 have no `cmd`, and some Android 8 firmwares have no `cmd notification` either (XGIMI Z6X Gen 4 prints `No shell command implementation.`): run `adb shell settings get secure enabled_notification_listeners` first. If it prints `null` or nothing, run `adb shell settings put secure enabled_notification_listeners com.ts.launcher/app.orchard.tv.guard.RevivalListener`; otherwise append `:com.ts.launcher/app.orchard.tv.guard.RevivalListener` to the value and `settings put` that, keeping what was there. Firmwares that force-stop apps in the background, LeTV's among them, rely on it to bring Aerial back (issue #1127).
+   Android 6 and 7 have no `cmd`, and some Android 8 firmwares have no `cmd notification` either (XGIMI Z6X Gen 4 prints `No shell command implementation.`): run `adb shell settings get secure enabled_notification_listeners` first. If it prints `null` or nothing, run `adb shell settings put secure enabled_notification_listeners com.ts.launcher/com.ts.launcher.guard.RevivalListener`; otherwise append `:com.ts.launcher/com.ts.launcher.guard.RevivalListener` to the value and `settings put` that, keeping what was there. Firmwares that force-stop apps in the background, LeTV's among them, rely on it to bring Aerial back (issue #1127).
    The last four app ops exist only on TCL and FFALCON (each firmware knows two of them); elsewhere they fail, which is fine.
    `ACCESS_RESTRICTED_SETTINGS` exists from Android 13 only: there an app installed from a file may not switch its accessibility service on, and Home Guard kept going off (#811 #829).
    TCL and FFALCON (`com.tcl.ttvs` installed, or `adb shell settings get system boot_app_componentname` already has a value): tell the user the current values of `boot_app_mode` and `boot_app_componentname` and note them, then run the two lines below. Aerial is then the first screen after power-on, with no TCL launcher first (#1185). If `boot_app_mode` already has a value, run the second line only:
    ```
    adb shell settings put system boot_app_mode boot_launcher
-   adb shell settings put system boot_app_componentname com.ts.launcher/app.orchard.tv.MainActivity
+   adb shell settings put system boot_app_componentname com.ts.launcher/.MainActivity
    ```
 
    Start Aerial once, wait 5 seconds, then compile it (takes up to a minute and makes Aerial run smoothly on the TV; on some TVs the compile only works after Aerial has started once):
    ```
-   adb shell am start -W -n com.ts.launcher/app.orchard.tv.MainActivity
+   adb shell am start -W -n com.ts.launcher/.MainActivity
    adb shell cmd package compile -m speed -f com.ts.launcher
    ```
    On Android 8, `-f` may fail with `RuntimeException: Can't create handler inside thread that has not called Looper.prepare()`; run the same line without `-f` (tested on XGIMI Z6X Gen 4, still gives `compilation_filter=speed`).
 
 4. Screensaver: run `adb shell settings get secure screensaver_enabled`. If it prints `1`, also run:
    ```
-   adb shell settings put secure screensaver_components com.ts.launcher/app.orchard.tv.dream.AerialDream
-   adb shell am broadcast -a app.orchard.tv.CONFIG -n com.ts.launcher/app.orchard.tv.guard.ConfigReceiver --ez own_screensaver true
+   adb shell settings put secure screensaver_components com.ts.launcher/com.ts.launcher.dream.AerialDream
+   adb shell am broadcast -a com.ts.launcher.CONFIG -n com.ts.launcher/.guard.ConfigReceiver --ez own_screensaver true
    ```
 
 5. Keep ADB on, if the user wants it (Xiaomi turns ADB off after standby; this makes later updates easier):
    ```
-   adb shell am broadcast -a app.orchard.tv.CONFIG -n com.ts.launcher/app.orchard.tv.guard.ConfigReceiver --ez keep_adb true
+   adb shell am broadcast -a com.ts.launcher.CONFIG -n com.ts.launcher/.guard.ConfigReceiver --ez keep_adb true
    ```
 
-6. Start Aerial: `adb shell am start -W -n com.ts.launcher/app.orchard.tv.MainActivity`. The output must include `Status: ok`.
+6. Start Aerial: `adb shell am start -W -n com.ts.launcher/.MainActivity`. The output must include `Status: ok`.
 
 7. Make it the default home screen (skip this for the guard build, **and on Xiaomi**: `adb shell pm path com.mitv.tvhome` prints a line there. Some Xiaomi Android 9 sets do take it, and the short press of the power key then no longer puts the TV to sleep, issue #848; Home Guard in the next item takes over on Xiaomi):
    ```
    adb shell cmd role add-role-holder --user 0 android.app.role.HOME com.ts.launcher
    ```
-   If that fails, use `adb shell cmd package set-home-activity --user 0 com.ts.launcher/app.orchard.tv.MainActivity`. Xiaomi, TCL and other firmwares ignore this; Home Guard in the next item takes over there.
+   If that fails, use `adb shell cmd package set-home-activity --user 0 com.ts.launcher/.MainActivity`. Xiaomi, TCL and other firmwares ignore this; Home Guard in the next item takes over there.
 
    **Hisense VIDAA**: first run `adb shell getprop persist.vt.use_home_pkg`. If it prints something (e.g. `com.jamdeo.tv.vod`) other than `com.ts.launcher`, keep the old value and point it at Aerial:
    ```
    adb shell settings put global aerial_vt_home_pkg <old value>
    adb shell setprop persist.vt.use_home_pkg com.ts.launcher
    ```
-   If it prints nothing, skip this; other TVs don't have the property.
+   If it prints nothing, check `adb shell pm path com.jamdeo.tv.vod`: if that prints a line (Hisense, with 聚好看 as its launcher), keep `-` for "was empty" and point it at Aerial the same way:
+   ```
+   adb shell settings put global aerial_vt_home_pkg -
+   adb shell setprop persist.vt.use_home_pkg com.ts.launcher
+   ```
+   If both print nothing, skip this; other TVs don't have the property.
 
-8. Home Guard: Aerial turns it on when it starts. Run `adb shell settings get secure enabled_accessibility_services`; the result should include `com.ts.launcher/app.orchard.tv.guard.HomeGuardService`. If it doesn't, add it, **keeping what is already there**, joined with a colon:
+8. Home Guard: Aerial turns it on when it starts. Run `adb shell settings get secure enabled_accessibility_services`; the result should include `com.ts.launcher/com.ts.launcher.guard.HomeGuardService`. If it doesn't, add it, **keeping what is already there**, joined with a colon:
    ```powershell
-   adb shell "settings put secure enabled_accessibility_services '<previous value>:com.ts.launcher/app.orchard.tv.guard.HomeGuardService'"
+   adb shell "settings put secure enabled_accessibility_services '<previous value>:com.ts.launcher/com.ts.launcher.guard.HomeGuardService'"
    adb shell settings put secure accessibility_enabled 1
    ```
-   If the previous value is `null` or empty, write `com.ts.launcher/app.orchard.tv.guard.HomeGuardService` alone. In PowerShell, write any `$` in the previous value as `` `$ ``.
+   If the previous value is `null` or empty, write `com.ts.launcher/com.ts.launcher.guard.HomeGuardService` alone. In PowerShell, write any `$` in the previous value as `` `$ ``.
 
    On some firmwares the `settings` command hangs and never returns (Tencent Aurora Box 6 / Q5043: cut off after 120 s). Skip this item there and check `adb shell dumpsys accessibility` for Aerial under `Enabled services` instead: once granted, Aerial turns Home Guard on itself.
 
@@ -225,7 +230,7 @@ adb shell "sleep 5; dumpsys window" | grep mCurrentFocus
 
 (On Windows use `findstr` instead of `grep`.) Line 1 has `versionName`: installed. Line 3 contains `app.orchard.tv.lite`: Home opens Lite, done. If line 3 shows the old launcher or the chooser, ask the user to press Home once on the physical remote and pick Always, then run line 3 again; if it still isn't Lite, tell the user plainly that this firmware won't let another app be the home screen and Lite opens from the app list.
 
-**Undo**: on the TV, Settings → Apps → Aerial Lite → **Clear defaults**; to remove it, `adb uninstall com.ts.launcher.lite`.
+**Undo**: on the TV, Settings → Apps → Aerial Lite → **Clear defaults**; to remove it, `adb uninstall app.orchard.tv.lite`.
 
 ## Check (required)
 
@@ -235,14 +240,14 @@ Run each of these and paste the **raw output** to the user:
 adb shell "dumpsys package com.ts.launcher | grep versionName"
 adb shell "cmd package resolve-activity --brief -a android.intent.action.MAIN -c android.intent.category.HOME -c android.intent.category.DEFAULT"
 adb shell settings get secure enabled_accessibility_services
-adb shell "dumpsys accessibility | grep -c -E 'label=(Aerial|com.ts.launcher|app\.orchard\.tv)'"
+adb shell "dumpsys accessibility | grep -c -E 'label=(Aerial|com.ts.launcher)'"
 adb shell input keyevent KEYCODE_HOME
 adb shell "sleep 8; dumpsys window | grep mCurrentFocus"
 ```
 
 - Line 1 shows a `versionName`: installed.
 - Line 2 is the home screen the system resolves to. It is fine for Xiaomi to still name PatchWall (`com.mitv.tvhome`) or TCL its own launcher; Home Guard takes over. `com.ts.launcher` is better still.
-- Line 3 includes `com.ts.launcher/app.orchard.tv.guard.HomeGuardService`: Home Guard is on. (On stock Android TV, where Aerial is already the default home screen, it may not be; line 6 decides.)
+- Line 3 includes `com.ts.launcher/com.ts.launcher.guard.HomeGuardService`: Home Guard is on. (On stock Android TV, where Aerial is already the default home screen, it may not be; line 6 decides.)
 - Line 4 is above 0: Home Guard is running.
 - **Line 6 includes `com.ts.launcher`: Home leads to Aerial and the install worked.** Don't tell the user it's installed until it does. On some firmwares the stock launcher stays a few seconds after Home before Home Guard brings Aerial back (about 5 s on OPPO ColorOS TV, #664): if line 6 shows the stock launcher, run `adb shell "sleep 5; dumpsys window | grep mCurrentFocus"` once more, and only call it a failure when neither shows `com.ts.launcher`.
 - Paste the raw output of lines 2, 3 and 6 to the user, not just "success". If line 2 errors on an old system without `cmd`, run `adb shell pm resolve-activity --brief -a android.intent.action.MAIN -c android.intent.category.HOME -c android.intent.category.DEFAULT` instead. On Android 6 neither may exist (`cmd: not found`, `pm` says `unknown command`; issues #1127 #1145): then skip line 2 and go by lines 3, 4 and 6. On some old firmwares `input keyevent KEYCODE_HOME` does not pass the guard; if line 6 looks wrong, ask the user to press Home once on the real remote and look again.
@@ -268,8 +273,8 @@ Add `--uninstall` (`bash -s restore --uninstall`) to remove Aerial as well.
 Windows, one command at a time:
 
 ```
-adb shell am broadcast -a app.orchard.tv.CONFIG -n com.ts.launcher/app.orchard.tv.guard.ConfigReceiver --ez keep_adb false --ez own_screensaver false
-adb shell cmd notification disallow_listener com.ts.launcher/app.orchard.tv.guard.RevivalListener
+adb shell am broadcast -a com.ts.launcher.CONFIG -n com.ts.launcher/.guard.ConfigReceiver --ez keep_adb false --ez own_screensaver false
+adb shell cmd notification disallow_listener com.ts.launcher/com.ts.launcher.guard.RevivalListener
 adb shell pm revoke com.ts.launcher android.permission.WRITE_SECURE_SETTINGS
 adb shell appops set com.ts.launcher SYSTEM_ALERT_WINDOW default
 adb shell appops set com.ts.launcher REQUEST_INSTALL_PACKAGES default
@@ -283,14 +288,14 @@ adb shell cmd role remove-role-holder --user 0 android.app.role.HOME com.ts.laun
 ```
 On TCL and FFALCON where the power-on app was changed, put back the values noted (`''` for an empty one): `adb shell settings put system boot_app_componentname <old value>`, and `boot_app_mode` the same way.
 
-On Android 6 and 7 without `cmd`, replace the `disallow_listener` line: `settings get secure enabled_notification_listeners`, take `com.ts.launcher/app.orchard.tv.guard.RevivalListener` (and the `:` before it) out of the value and `settings put` the rest; if it was the only one, `adb shell settings delete secure enabled_notification_listeners`.
+On Android 6 and 7 without `cmd`, replace the `disallow_listener` line: `settings get secure enabled_notification_listeners`, take `com.ts.launcher/com.ts.launcher.guard.RevivalListener` (and the `:` before it) out of the value and `settings put` the rest; if it was the only one, `adb shell settings delete secure enabled_notification_listeners`.
 
 Then:
 
 - If `adb shell settings get secure screensaver_components` is `com.ts.launcher/...`, put back the default: `adb shell settings put secure screensaver_components <value of adb shell settings get secure screensaver_default_component>`.
-- `adb shell settings get secure enabled_accessibility_services`: remove `com.ts.launcher/app.orchard.tv.guard.HomeGuardService` (and the colon next to it) and write the rest back unchanged. If nothing else is left, run `adb shell settings delete secure enabled_accessibility_services`.
+- `adb shell settings get secure enabled_accessibility_services`: remove `com.ts.launcher/com.ts.launcher.guard.HomeGuardService` (and the colon next to it) and write the rest back unchanged. If nothing else is left, run `adb shell settings delete secure enabled_accessibility_services`.
 - Xiaomi (`adb shell pm path com.mitv.tvhome` prints a line): if the last line of `adb shell cmd package resolve-activity --brief -a android.intent.action.MAIN -c android.intent.category.HOME -c android.intent.category.DEFAULT` is `com.ts.launcher/...`, run `adb shell cmd package set-home-activity --user 0 com.mitv.tvhome/.MainActivityUserMode` and restart the TV once (issue #848: with Aerial as the default Home the short press of the power key no longer sleeps the TV).
-- Hisense VIDAA: if `adb shell settings get global aerial_vt_home_pkg` prints a value (not `null`), run `adb shell setprop persist.vt.use_home_pkg <that value>` and `adb shell settings delete global aerial_vt_home_pkg`. If it prints nothing but `adb shell getprop persist.vt.use_home_pkg` is `app.orchard.tv` (set by hand on 1.15 and earlier) and `com.jamdeo.tv.vod` is installed, run `adb shell setprop persist.vt.use_home_pkg com.jamdeo.tv.vod`.
+- Hisense VIDAA: if `adb shell settings get global aerial_vt_home_pkg` prints `-`, run `adb shell "setprop persist.vt.use_home_pkg ''"` and `adb shell settings delete global aerial_vt_home_pkg`; if it prints another value (not `null`), run `adb shell setprop persist.vt.use_home_pkg <that value>` and `adb shell settings delete global aerial_vt_home_pkg`. If it prints nothing but `adb shell getprop persist.vt.use_home_pkg` is `com.ts.launcher` (set by hand on 1.15 and earlier) and `com.jamdeo.tv.vod` is installed, run `adb shell setprop persist.vt.use_home_pkg com.jamdeo.tv.vod`.
 - To uninstall: `adb uninstall com.ts.launcher`.
 - Finally `adb shell input keyevent KEYCODE_HOME`; the TV goes back to its own home screen.
 
@@ -305,10 +310,10 @@ Then:
 - **On TCL, push with the TV on its home screen**: over live TV or an HDMI picture the 多屏互动 prompt is hidden under the video.
 - **Hisense VIDAA**: once item 7 has changed `persist.vt.use_home_pkg`, Home goes straight to Aerial; the TV still starts into its own launcher after a reboot (the firmware holds third-party apps back until boot completes), so press Home once.
 - **Other Vidda systems, OPPO K9, FFALCON Crane 6**: Aerial installs but the TV doesn't start into it (the firmware only accepts its own launcher unless that is removed, which this install doesn't do). Aerial still works as an app.
-- **Check line 4 is 0 but line 3 lists Aerial**: common right after an update, when the system still looks in the old install directory (Xiaomi, Android 9, #72). Run `adb shell am force-stop com.ts.launcher`, wait 3 seconds, run `adb shell am start -W -n com.ts.launcher/app.orchard.tv.MainActivity`, and check again. On macOS / Linux, `curl -fsSL https://aerial.qust.me/install.sh | TV=<IP> bash -s repair` does the same.
+- **Check line 4 is 0 but line 3 lists Aerial**: common right after an update, when the system still looks in the old install directory (Xiaomi, Android 9, #72). Run `adb shell am force-stop com.ts.launcher`, wait 3 seconds, run `adb shell am start -W -n com.ts.launcher/.MainActivity`, and check again. On macOS / Linux, `curl -fsSL https://aerial.qust.me/install.sh | TV=<IP> bash -s repair` does the same.
 - **Home opens the TV's own launcher again after a while**: try the same stop-and-open first.
-- **Check line 4 is 0 and line 3 does not list Aerial**: some firmwares block sideloaded accessibility services. Ask the user to allow Aerial's autostart and accessibility in the TV's security or permissions app, then run `adb shell am start -n com.ts.launcher/app.orchard.tv.MainActivity` and check again.
-- **Forgot the parental PIN**: `adb shell am broadcast -a app.orchard.tv.CONFIG -n com.ts.launcher/app.orchard.tv.guard.ConfigReceiver --ez clear_pin true` turns it off.
+- **Check line 4 is 0 and line 3 does not list Aerial**: some firmwares block sideloaded accessibility services. Ask the user to allow Aerial's autostart and accessibility in the TV's security or permissions app, then run `adb shell am start -n com.ts.launcher/.MainActivity` and check again.
+- **Forgot the parental PIN**: `adb shell am broadcast -a com.ts.launcher.CONFIG -n com.ts.launcher/.guard.ConfigReceiver --ez clear_pin true` turns it off.
 - **Not supported**: LG webOS, Samsung Tizen, Huawei Vision (HarmonyOS), and Android 3.x or older (Android 4.0-4.4 gets Aerial Lite, above). TVs that cannot open ADB, such as old LeTV sets, Honor Vision and old Konka models (no version number to tap), can't be used yet.
 
 ## What users ask
