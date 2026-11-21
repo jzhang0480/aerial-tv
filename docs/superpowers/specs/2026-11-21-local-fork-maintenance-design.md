@@ -1,8 +1,8 @@
 # 本地 fork 维护方案：上下文分流（设计稿）
 
 日期：2026-11-21
-分支：`claude/package-id-com-ts-launcher`
-状态：已批准并实施（2026-11-21）
+分支：`main`（2026-11-22 由 `claude/package-id-com-ts-launcher` 改名，并推送到 origin/main）
+状态：已批准、实施、推送（2026-11-22）
 
 用户决定：
 - MISSION.md 对安装/升级命令**只放指针**（指向 `docs/devices/xiaomi-mitv-astr0.md`，不重复命令）。
@@ -108,6 +108,14 @@
    「目的 / 构建什么 / 怎么合并 / 什么不碰」。
 4. ASTR0 真机：标准 release 安装 + dexopt 核验（沿用 `xiaomi-mitv-astr0.md` 流程）。
 
+结果（2026-11-21/22）：
+
+1. ✅ 四个文件已提交（`4a13dc3`）。
+2. ✅ 脚本端到端跑通：merge（已最新）→ 包名校验通过 → BUILD SUCCESSFUL（standard + guard）。
+3. ✅ 新 AGENTS.md 被 harness 加载，第一份指向 MISSION.md。
+4. ⏳ ASTR0 真机核验：2026-11-22 户主升级 2.15 中（1.97/code 142 → 2.15 跨 18 个版本），
+   结果待回填。
+
 ## 6. 不做的事
 
 - 不新建独立仓库 / subtree（与"继续追新"冲突）。
@@ -118,7 +126,10 @@
 - 不自动 push `origin`。
 - 不删 `main` 分支（是否删由用户决定）。
 
-## 7. 留待用户决定
+## 7. 留待用户决定（2026-11-22 已定）
 
-- `main` 分支（1.97，旧包名）：保留 / 删 / 重命名为 `upstream`。
-- 是否额外把方案 B（从工作区移走 `site/`/`lite/` 等）做上（当前只做 A）。
+- `main` 分支（1.97，旧包名）：**已解决**——定制分支推送到 origin/main
+  （fast-forward `1002090..4a13dc3`，无需 force），过时的本地 `main` 已删，
+  `claude/package-id-com-ts-launcher` 改名为 `main` 并跟踪 origin/main。
+  仓库现在本地和远端都只有一条 `main`。
+- 方案 B（从工作区移走 `site/`/`lite/` 等）：**不做**，只做 A。
