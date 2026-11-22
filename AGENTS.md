@@ -7,9 +7,10 @@ tvOS 风格的 Android TV 桌面，面向国内电视（小米、TCL 等），Ko
 
 ## 当前部署状态（2026-11-22）
 
-- 电视上跑的是 Aerial 2.15（`com.ts.launcher`）。`com.mitv.tvhome`（PatchWall）已由户主
+- 电视上跑的是 Aerial 2.16 / code 159（`com.ts.launcher`，2026-11-22 由 2.15 升级）。`com.mitv.tvhome`（PatchWall）已由户主
   **明确授权后停用**，HOME 直接解析到 `com.ts.launcher/app.orchard.tv.MainActivity`；
-  重启后直接进 Aerial、待机唤醒、遥控器、Aerial 屏保、断网恢复均已实测通过。
+  2.15 上重启后直接进 Aerial、待机唤醒、遥控器、Aerial 屏保、断网恢复均已实测通过；
+  2.16 只做了安装后系统层核验，这些交互项尚未重测。
 - **不要擅自恢复 PatchWall**：只有户主明确要求时才 `adb shell pm enable --user 0 com.mitv.tvhome`
   （完整回滚见 `docs/devices/xiaomi-mitv-astr0.md`）。
 - 本地工作区是 sparse-checkout：`site/`、`docs/HANDOFF.md`、`docs/LITE.md`、非 ASTR0 的

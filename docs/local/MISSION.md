@@ -16,17 +16,18 @@
 
 ## 当前部署状态（2026-11-22）
 
-- 电视：Aerial 2.15（`com.ts.launcher`）。`com.mitv.tvhome` 已由户主明确授权停用
+- 电视：Aerial 2.16 / versionCode 159（`com.ts.launcher`，2026-11-22 由 2.15 升级）。`com.mitv.tvhome` 已由户主明确授权停用
   （`pm disable-user --user 0 com.mitv.tvhome`），HOME 直接解析到
   `com.ts.launcher/app.orchard.tv.MainActivity`（`isDefault=true`）。
-- 已实测：Aerial 内按 Home、从其他 App 按 Home、重启后直接进 Aerial、待机唤醒
-  （ADB 保持）、遥控器、Aerial 屏保、断网恢复。
+- 2.15 上已实测：Aerial 内按 Home、从其他 App 按 Home、重启后直接进 Aerial、待机唤醒
+  （ADB 保持）、遥控器、Aerial 屏保、断网恢复。2.16 升级后仅完成安装与系统层核验
+  （版本/包状态/HOME 解析/dexopt/无障碍守护/PatchWall 仍停用），交互项尚未重测。
 - **不要擅自恢复 PatchWall**；只有户主明确要求时才 `pm enable --user 0 com.mitv.tvhome`，
   完整回滚见 `docs/devices/xiaomi-mitv-astr0.md`。
 - 工作区是 sparse-checkout（`tools/sparse.sh`）：`site/`、`docs/HANDOFF.md`、
   `docs/LITE.md`、非 ASTR0 的 `docs/devices/*` 不在本地，仍在 git 中。
-- 仓库 `main` 已合并上游 2.16（versionCode 159）；电视上仍是 2.15（157）。升级电视是
-  单独的机主决定，按 `docs/devices/xiaomi-mitv-astr0.md` 执行，未安装前不得把 2.16 记为已核验。
+- 仓库 `main` 已合并上游 2.16（versionCode 159），电视已升级到同一版本；后续上游更新仍按
+  `docs/devices/xiaomi-mitv-astr0.md` 执行，未在真机核验前不得记为已核验。
 
 ## 构建与安装
 

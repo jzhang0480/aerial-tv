@@ -10,8 +10,9 @@
 - HOME 组件：`com.ts.launcher/app.orchard.tv.MainActivity`；升级使用 `standard` flavor。
 - 本机私有安装所需证书 SHA-256：`47:94:7F:3D:B3:EF:0C:DC:1C:04:55:88:E1:64:B6:80:4B:7C:71:B7:8C:A2:94:0F:33:55:9A:BE:29:DB:C5:D0`。这是证书指纹，不是密钥；私钥不得进入版本库。
 - 公开 Aerial Release 使用 `app.orchard.tv`，**不能**覆盖升级本机的 `com.ts.launcher`。
-- 截至 2026-11-22，本机已完成本次升级：Aerial 2.15 / versionCode 157（1.97 / code 142 → 2.15；备份 `local/backups/aerial-com.ts.launcher-1.97-code142-before-upgrade-20261122-001055.apk`）。安装前核验通过：包名 `com.ts.launcher`、证书指纹（ASTR0 `47:94:7F:...` 与备份一致）、`.dm`（`assets/aerial-dm/28.dm`）组合安装成功；`dumpsys package dexopt` 为 `status=speed`（install 后脚本 `compile -m speed -f` 的编译态，Android 11 上即为编译，非解释）。
-- 2026-11-22 升级后实测：HOME 解析一度回到 `android/com.android.internal.app.ResolverActivity`（`isDefault=false`，覆盖安装重置了默认桌面状态）；安装脚本据此启用 Aerial Home Guard，Home 键能把 Aerial 拉回。
+- 截至 2026-11-22，本机已升级到 Aerial 2.16 / versionCode 159（2.15 / code 157 → 2.16；升级前备份 `local/backups/aerial-com.ts.launcher-2.15-code157-before-upgrade-20261122-210227.apk`）。安装前核验通过：备份与新包的包名均为 `com.ts.launcher`，两份证书 SHA-256 均为 ASTR0 指纹 `47:94:7F:...:C5:D0`；版本 159 高于设备上的 157。经 `tools/install.sh`（`KEEP_ADB=1`，API 30 自动选 `assets/aerial-dm/28.dm`）组合安装成功，脚本输出 `Aerial is the home screen`。
+- 2026-11-22 2.16 升级后核验：`versionName=2.16` / `versionCode=159`；`enabled=0`、`stopped=false`；HOME 仍直接解析到 `com.ts.launcher/app.orchard.tv.MainActivity` 且 `isDefault=true`（本次未回退到 ResolverActivity，Home Guard 无需接管）；`dumpsys package dexopt` 为 `status=speed`；前台为 Aerial；无障碍列表仍含 `com.ts.launcher/app.orchard.tv.guard.HomeGuardService`；`com.mitv.tvhome` 仍为 `disabled-user`（未恢复）。交互项（遥控器菜单/语音键、应用切换/返回、Aerial 屏保、待机唤醒、断网恢复）本次**尚未**重测。
+- 2026-11-22 2.15 升级后实测（历史）：HOME 解析一度回到 `android/com.android.internal.app.ResolverActivity`（`isDefault=false`，覆盖安装重置了默认桌面状态）；安装脚本据此启用 Aerial Home Guard，Home 键能把 Aerial 拉回。
 - 2026-11-22 部署（户主明确授权）：执行 `adb shell pm disable-user --user 0 com.mitv.tvhome` 后，HOME 直接解析到 `com.ts.launcher/app.orchard.tv.MainActivity`（`isDefault=true`），Home 键不再经过 PatchWall。已实测：Aerial 内按 Home、从其他 App 按 Home、重启后直接进 Aerial、待机唤醒（ADB 保持）、遥控器、Aerial 屏保、断网恢复均正常。此停用属户主决定，不要擅自恢复。
 - 2026-11-14 升级前保存的 1.74 / code 94 APK 不是当前 1.97 的备份。每次升级都要重新备份当时设备上的版本。
 
