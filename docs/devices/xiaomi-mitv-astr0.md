@@ -10,7 +10,8 @@
 - HOME 组件：`com.ts.launcher/app.orchard.tv.MainActivity`；升级使用 `standard` flavor。
 - 本机私有安装所需证书 SHA-256：`47:94:7F:3D:B3:EF:0C:DC:1C:04:55:88:E1:64:B6:80:4B:7C:71:B7:8C:A2:94:0F:33:55:9A:BE:29:DB:C5:D0`。这是证书指纹，不是密钥；私钥不得进入版本库。
 - 公开 Aerial Release 使用 `app.orchard.tv`，**不能**覆盖升级本机的 `com.ts.launcher`。
-- 截至 2026-11-14，本机已安装 Aerial 1.97 / versionCode 142。已核验包名、签名、HOME 解析到上述组件，以及 `dumpsys package dexopt` 为 `speed-profile`（`install-dm`）。遥控器、语音键、屏保、待机等交互尚未由本次升级验证，仍需机主实际测试。
+- 截至 2026-11-22，本机已完成本次升级：Aerial 2.15 / versionCode 157（1.97 / code 142 → 2.15；备份 `local/backups/aerial-com.ts.launcher-1.97-code142-before-upgrade-20261122-001055.apk`）。安装前核验通过：包名 `com.ts.launcher`、证书指纹（ASTR0 `47:94:7F:...` 与备份一致）、`.dm`（`assets/aerial-dm/28.dm`）组合安装成功；`dumpsys package dexopt` 为 `status=speed`（install 后脚本 `compile -m speed -f` 的编译态，Android 11 上即为编译，非解释）。
+- 2026-11-22 升级后实测：HOME 解析回到 `android/com.android.internal.app.ResolverActivity`（`isDefault=false`），未解析到 `com.ts.launcher/...MainActivity`；安装脚本据此启用 Aerial Home Guard。随后实测 Home 键（从原桌面/Stock 前台回到 Aerial，以及在 Aerial 前台按 Home 保持 Aerial）恢复正常。遥控器、语音键、应用切换/返回、屏保、待机等交互尚未由机主完成，仍需机主实际测试。
 - 2026-11-14 升级前保存的 1.74 / code 94 APK 不是当前 1.97 的备份。每次升级都要重新备份当时设备上的版本。
 
 ## ASTR0 设备配置

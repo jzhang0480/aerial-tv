@@ -113,8 +113,10 @@
 1. ✅ 四个文件已提交（`4a13dc3`）。
 2. ✅ 脚本端到端跑通：merge（已最新）→ 包名校验通过 → BUILD SUCCESSFUL（standard + guard）。
 3. ✅ 新 AGENTS.md 被 harness 加载，第一份指向 MISSION.md。
-4. ⏳ ASTR0 真机核验：2026-11-22 户主升级 2.15 中（1.97/code 142 → 2.15 跨 18 个版本），
-   结果待回填。
+4. ✅ ASTR0 真机核验：2026-11-22 户主升级 2.15 中（1.97/code 142 → 2.15 跨 18 个版本）已完成：
+   安装、签名、dexopt、Home 回归均通过 adb 核验（版本 2.15/157，dexopt `status=speed`，HOME 经
+   Home Guard 接管后 Home 键能把 Aerial 前台拉回）；交互项（遥控器实体、语音键、屏保、待机唤醒）
+   待机主实测。
 
 ## 6. 不做的事
 
