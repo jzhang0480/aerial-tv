@@ -32,8 +32,12 @@ tvOS 风格的 Android TV 桌面，面向国内电视（小米、TCL 等），Ko
 export JAVA_HOME=/opt/homebrew/opt/openjdk@17
 ./gradlew assembleStandardRelease assembleGuardRelease   # 只构建 standard + guard，不构建 lite
 source local/tvs.env && BUILD=1 KEEP_ADB=1 TV=$XIAOMI_TV tools/install.sh   # com.ts.launcher 必须本地构建；ASTR0 完整流程见 docs/devices/xiaomi-mitv-astr0.md
-tools/merge-upstream.sh   # 一键同步上游：fetch + merge + 包名校验 + 构建
+tools/merge-upstream.sh   # 一键同步上游：fetch + merge + 包名/Manifest 校验 + 构建 + APK 校验
 ```
+
+- 户主说「升级电视上的应用」时，按 `docs/devices/xiaomi-mitv-astr0.md` 的「一句话升级」清单执行
+  （备份 → 构建核对 → 安装 → 核验 → 回填基线）。电视地址在 `local/tvs.env`（git 忽略）；
+  没有这个文件就向户主问 IP 后创建。
 
 - 连电视的命令（adb、curl 访问电视）需要关闭沙箱。
 - ASTR0 本机升级、备份、核验和恢复只按 `docs/devices/xiaomi-mitv-astr0.md` 操作；不要使用公开 Release APK，也不要套用其他设备的 `.dm` 示例。

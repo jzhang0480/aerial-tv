@@ -23,20 +23,21 @@
 - `neverFilterKeys`：此固件上的无障碍按键过滤会吞掉遥控器语音键 `KEYCODE_VOICE`（192）。
 - `skipTakeoverWhenDefaultHome`：Aerial 已是默认 HOME 时，不要把未知前台应用误判为 PatchWall 并重新拉起 Aerial 覆盖它。
 
-不要为了升级修改这些规则，也不要停用或卸载 `com.mitv.tvhome` 或其他系统应用；始终保留系统桌面作为可恢复的 HOME。
+不要为了升级修改这些规则。`com.mitv.tvhome` 的停用是本机已完成的部署（户主明确授权，见上），升级时不要恢复它，也不要扩大到其他系统应用；恢复方法见「KEEP_ADB 与恢复」。
 
 ## 升级前准备
 
 1. 在 AerialTV 仓库根目录执行命令。需要 JDK 17、Android SDK、`adb`、`unzip`，以及本机忽略目录中的 `local/signing.properties` 和它引用的 keystore。
 2. Release 构建在缺少本机签名配置时会回退到本机 debug key。**若签名配置/keystore 缺失，或证书指纹不是上面的 ASTR0 指纹，停止升级；不要尝试用 debug key 覆盖安装，也不要按安装脚本提示先卸载。**
-3. 从电视当前显示的 ADB/无线调试页面取得本机使用的 endpoint，并只在本机 shell 变量中设置。不要把真实 IP、配对码或端口提交到仓库。Android 11 的无线调试 endpoint/端口可能变化，首次连接也可能需要电视显示的配对码；不要假定 `:5555` 永远可用。
+3. 电视地址优先从被忽略的 `local/tvs.env` 读取（`XIAOMI_TV=<IP>`）；没有这个文件时，向户主问 IP 后创建它，不要写进跟踪文件。也可从电视当前显示的 ADB/无线调试页面取得 endpoint。Android 11 的无线调试 endpoint/端口可能变化，首次连接也可能需要电视显示的配对码；不要假定 `:5555` 永远可用。
 
-以下示例中的 `TV_IP_OR_IP:PORT` 是占位符，执行前必须替换为电视当前显示的 endpoint：
+以下示例从 `local/tvs.env` 读取电视地址（文件不存在时先创建）：
 
 ```bash
 export JAVA_HOME=/opt/homebrew/opt/openjdk@17
 export ANDROID_HOME="${ANDROID_HOME:-$HOME/Library/Android/sdk}"
-TV="TV_IP_OR_IP:PORT"
+source local/tvs.env
+TV="$XIAOMI_TV"
 case "$TV" in *:*) ADB_TARGET="$TV" ;; *) ADB_TARGET="$TV:5555" ;; esac
 adb connect "$ADB_TARGET"
 adb -s "$ADB_TARGET" get-state
@@ -45,6 +46,25 @@ adb -s "$ADB_TARGET" shell getprop ro.build.version.sdk
 ```
 
 继续前必须确认设备型号为 `MiTV-ASTR0` / `MiTV_ASTR0`、SDK 为 `30`，且 `get-state` 返回 `device`。如需 Android 11 无线调试配对，按电视当前显示的配对页操作；不要复用过期端口或配对码。
+
+## 一句话升级（代理执行清单）
+
+户主说「升级电视上的应用」时，按下面顺序执行；任何一步不符合预期就停下报告，不要继续：
+
+1. **端点**：`source local/tvs.env` 取 `XIAOMI_TV`。文件不存在时向户主问电视 IP，写成
+   `local/tvs.env`（`XIAOMI_TV=<IP>`，该目录被 git 忽略，不提交）。
+2. **连接与身份**：`adb connect` 后确认 `get-state=device`、型号 `MiTV-ASTR0`/`MiTV_ASTR0`、SDK `30`。
+3. **记录现状**：当前 `versionName`/`versionCode`、`pm path`、HOME 解析、`pm list packages -d`
+   （`com.mitv.tvhome` 应为 `disabled-user`，这是本机部署状态，不要恢复）、无障碍守护是否在。
+4. **备份**：按「每次升级流程 1」。
+5. **构建与检查**：按「每次升级流程 2」。新 APK 的 versionCode 必须高于电视上的版本；
+   相同则说明当前已是最新，跳过安装并说明。
+6. **安装**：按「每次升级流程 3」。脚本应输出 `Aerial is the home screen`；若它转而启用
+   Home Guard，说明默认桌面状态变了，先停下核实。
+7. **核验**：按「每次升级流程 4」。若 HOME 不再解析到 Aerial，先确认 `com.mitv.tvhome`
+   仍是 `disabled-user`（不要恢复它），再停下报告。
+8. **回填**：按「每次升级流程 5」更新本文基线并提交；是否 `git push` 问户主。
+9. **交接**：明确告诉户主哪些交互项还没测（遥控器、语音键、应用切换/返回、屏保、待机唤醒）。
 
 ## 每次升级流程
 
@@ -116,13 +136,33 @@ APK_FILE="$APK" KEEP_ADB=1 TV="$TV" tools/install.sh
 ### 4. 安装后核验
 
 ```bash
-adb -s "$ADB_TARGET" shell dumpsys package com.ts.launcher | grep -E 'versionCode=|versionName='
+adb -s "$ADB_TARGET" shell dumpsys package com.ts.launcher | grep -E 'versionCode=|versionName=|enabled=|stopped='
 adb -s "$ADB_TARGET" shell cmd package resolve-activity --brief \
   -a android.intent.action.MAIN -c android.intent.category.HOME -c android.intent.category.DEFAULT
 adb -s "$ADB_TARGET" shell dumpsys package dexopt | grep -A2 'com.ts.launcher]'
+adb -s "$ADB_TARGET" shell dumpsys activity activities | grep -m1 'mResumedActivity'
+adb -s "$ADB_TARGET" shell settings get secure enabled_accessibility_services
+adb -s "$ADB_TARGET" shell pm list packages -d | grep com.mitv.tvhome
 ```
 
-确认安装版本正确，HOME 解析为 `com.ts.launcher/app.orchard.tv.MainActivity`，dexopt 达到 `speed-profile`（正常情况下原因为 `install-dm`）。在电视上再实际检查遥控器菜单键、语音键、应用切换/返回、Aerial 屏保与待机唤醒。未由机主完成这些交互检查前，不要把它们记录为已验证。
+确认安装版本正确；HOME 解析为 `com.ts.launcher/app.orchard.tv.MainActivity`；包状态为
+`enabled=0`、`stopped=false`；dexopt 已编译（ASTR0 上通常是 `status=speed`；
+`speed-profile`/`install-dm` 也算通过，关键是不要停在 `verify`/解释执行）；前台是 Aerial；
+无障碍服务列表仍包含 `com.ts.launcher/app.orchard.tv.guard.HomeGuardService`；
+`com.mitv.tvhome` 仍为 `disabled-user`（本机部署状态，不要恢复它）。
+
+在电视上再实际检查遥控器菜单键、语音键、应用切换/返回、Aerial 屏保与待机唤醒。未由机主
+完成这些交互检查前，不要把它们记录为已验证。
+
+### 5. 回填基线与提交
+
+把「设备身份与当前基线」里的版本、备份文件名、dexopt 和本次核验结果更新为实际值；机主
+已实测的交互项写进验证边界，未实测的不要写成已验证。然后提交（是否 `git push` 问户主）：
+
+```bash
+git add docs/devices/xiaomi-mitv-astr0.md
+git commit -m "docs: 回填 ASTR0 <版本> 升级核验结果"
+```
 
 ## KEEP_ADB 与恢复
 
@@ -133,4 +173,6 @@ adb -s "$ADB_TARGET" shell dumpsys package dexopt | grep -A2 'com.ts.launcher]'
 
 ## 维护此指南
 
-每次完成新的升级后，更新“当前基线与验证边界”中的版本、实测项目和 dexopt 结果。电视 IP、配对码、keystore、密码、家庭设置及备份文件始终只留在被忽略的 `local/`；本指南和其他跟踪文件不得包含这些内容。
+每次完成新的升级后，按「每次升级流程 5」更新“当前基线与验证边界”中的版本、实测项目和
+dexopt 结果并提交。电视 IP、配对码、keystore、密码、家庭设置及备份文件始终只留在被忽略的
+`local/`；本指南和其他跟踪文件不得包含这些内容。
