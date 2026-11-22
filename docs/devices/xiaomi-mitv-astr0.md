@@ -11,7 +11,8 @@
 - 本机私有安装所需证书 SHA-256：`47:94:7F:3D:B3:EF:0C:DC:1C:04:55:88:E1:64:B6:80:4B:7C:71:B7:8C:A2:94:0F:33:55:9A:BE:29:DB:C5:D0`。这是证书指纹，不是密钥；私钥不得进入版本库。
 - 公开 Aerial Release 使用 `app.orchard.tv`，**不能**覆盖升级本机的 `com.ts.launcher`。
 - 截至 2026-11-22，本机已完成本次升级：Aerial 2.15 / versionCode 157（1.97 / code 142 → 2.15；备份 `local/backups/aerial-com.ts.launcher-1.97-code142-before-upgrade-20261122-001055.apk`）。安装前核验通过：包名 `com.ts.launcher`、证书指纹（ASTR0 `47:94:7F:...` 与备份一致）、`.dm`（`assets/aerial-dm/28.dm`）组合安装成功；`dumpsys package dexopt` 为 `status=speed`（install 后脚本 `compile -m speed -f` 的编译态，Android 11 上即为编译，非解释）。
-- 2026-11-22 升级后实测：HOME 解析回到 `android/com.android.internal.app.ResolverActivity`（`isDefault=false`），未解析到 `com.ts.launcher/...MainActivity`；安装脚本据此启用 Aerial Home Guard。随后实测 Home 键（从原桌面/Stock 前台回到 Aerial，以及在 Aerial 前台按 Home 保持 Aerial）恢复正常。遥控器、语音键、应用切换/返回、屏保、待机等交互尚未由机主完成，仍需机主实际测试。
+- 2026-11-22 升级后实测：HOME 解析一度回到 `android/com.android.internal.app.ResolverActivity`（`isDefault=false`，覆盖安装重置了默认桌面状态）；安装脚本据此启用 Aerial Home Guard，Home 键能把 Aerial 拉回。
+- 2026-11-22 部署（户主明确授权）：执行 `adb shell pm disable-user --user 0 com.mitv.tvhome` 后，HOME 直接解析到 `com.ts.launcher/app.orchard.tv.MainActivity`（`isDefault=true`），Home 键不再经过 PatchWall。已实测：Aerial 内按 Home、从其他 App 按 Home、重启后直接进 Aerial、待机唤醒（ADB 保持）、遥控器、Aerial 屏保、断网恢复均正常。此停用属户主决定，不要擅自恢复。
 - 2026-11-14 升级前保存的 1.74 / code 94 APK 不是当前 1.97 的备份。每次升级都要重新备份当时设备上的版本。
 
 ## ASTR0 设备配置
@@ -127,6 +128,7 @@ adb -s "$ADB_TARGET" shell dumpsys package dexopt | grep -A2 'com.ts.launcher]'
 
 - `KEEP_ADB=1` 通过 Aerial 配置开启保持 ADB 的偏好；Home Guard 运行时会在固件关闭 `adb_enabled` 后尝试恢复它。它不是独立 ADB 服务，也**不保证** Android 11 的无线调试端口、配对或网络 endpoint 永久有效。若电视关闭无线调试或端口变化，需要在电视上查看并重新启用/配对。
 - `TV="$TV" tools/restore.sh` 用于停止 Aerial 接管 HOME、把 HOME 交回系统桌面，并让 Aerial 保持安装。执行后按脚本提示重启电视。它不是 APK 降级工具。
+- 本机当前为「改包名 + 停用 `com.mitv.tvhome`」模式。恢复原厂桌面：先 `adb shell pm enable --user 0 com.mitv.tvhome`；若同时要把 HOME 交还系统桌面，再执行 `TV="$TV" tools/restore.sh`（它会移除 HOME 角色并设回 `com.mitv.tvhome/.MainActivityUserMode`）。不要把「恢复 PatchWall」当作常规操作，只有户主明确要求时才做。
 - APK 降级可能被 Android 以 `INSTALL_FAILED_VERSION_DOWNGRADE` 拒绝；签名不匹配也不能覆盖安装。不要把卸载后重装当作常规回滚：`tools/restore.sh --uninstall` 会卸载 `com.ts.launcher`，可能丢失 Aerial 设置、壁纸及应用数据。只有机主明确接受数据后果并另行决定回滚方案时才考虑卸载。
 
 ## 维护此指南

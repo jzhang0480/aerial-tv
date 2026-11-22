@@ -35,6 +35,16 @@ grep -q 'applicationId = "com.ts.launcher"' app/build.gradle.kts || {
 for f in tools/install.sh tools/restore.sh tools/test_install.py tools/test_restore.py; do
   grep -q 'com.ts.launcher' "$f" || { echo "!! $f no longer mentions com.ts.launcher"; fail=1; }
 done
+# Local invariants: the manifest and its authorities/account type must stay in place.
+# The HOME category lives in the standard flavor's manifest, not in main.
+grep -q 'android.intent.category.HOME' app/src/standard/AndroidManifest.xml || {
+  echo "!! app/src/standard/AndroidManifest.xml no longer declares the HOME category"; fail=1; }
+grep -q '\${applicationId}' app/src/main/AndroidManifest.xml || {
+  echo "!! AndroidManifest.xml no longer uses \${applicationId} for the FileProvider"; fail=1; }
+for f in app/src/main/res/xml/revival_account.xml app/src/main/res/xml/revival_sync.xml; do
+  grep -q 'android:accountType="com.ts.launcher"' "$f" || {
+    echo "!! $f accountType is not com.ts.launcher"; fail=1; }
+done
 if [ "$fail" != 0 ]; then
   exit 1
 fi
@@ -45,6 +55,32 @@ echo "building standard + guard ..."
 if [ "${LITE:-}" = "1" ]; then
   echo "building lite (full compile check) ..."
   ./gradlew :lite:assembleRelease
+fi
+
+# Check the built APK itself, not only the sources.
+export ANDROID_HOME="${ANDROID_HOME:-$HOME/Library/Android/sdk}"
+APK=app/build/outputs/apk/standard/release/app-standard-release.apk
+AAPT2=$(ls "$ANDROID_HOME"/build-tools/*/aapt2 2>/dev/null | sort -V | tail -1 || true)
+APKSIGNER=$(ls "$ANDROID_HOME"/build-tools/*/apksigner 2>/dev/null | sort -V | tail -1 || true)
+if [ -n "$AAPT2" ]; then
+  # Capture first: grep -q closes the pipe early, and pipefail would call that a failure.
+  BADGING=$("$AAPT2" dump badging "$APK" 2>/dev/null || true)
+  case "$BADGING" in
+    *"package: name='com.ts.launcher'"*) ;;
+    *) echo "!! built APK is not com.ts.launcher"; exit 1 ;;
+  esac
+  TREE=$("$AAPT2" dump xmltree --file AndroidManifest.xml "$APK" 2>/dev/null || true)
+  case "$TREE" in
+    *android.intent.category.HOME*) ;;
+    *) echo "!! built APK declares no HOME category"; exit 1 ;;
+  esac
+  echo "APK: package and HOME category OK"
+else
+  echo "aapt2 not found under $ANDROID_HOME; skipped the APK manifest check"
+fi
+if [ -n "$APKSIGNER" ]; then
+  "$APKSIGNER" verify "$APK" >/dev/null 2>&1 || { echo "!! built APK is not signed"; exit 1; }
+  echo "APK: signature OK"
 fi
 
 echo
